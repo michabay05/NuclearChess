@@ -20,19 +20,21 @@ class Search
 
     public static void SearchMove(ref Board board, int depth)
     {
-        int score;
+        int score = 0;
         // Reset arrays with garbage values
         killerMoves = new int[2, MAX_PLY]; // [id, ply]
         historyMoves = new int[12, 64]; // [piece, square]
         pvLength = new int[MAX_PLY];
         pvTable = new int[MAX_PLY, MAX_PLY];
+
         followPV = false;
         scorePV = false;
         nodes = 0;
 
-        // Reset node counter
+        // Iterative deepening
         for (int currentDepth = 1; currentDepth <= depth; currentDepth++)
         {
+            followPV = true;
             score = Negamax(ref board, -50000, 50000, currentDepth);
             Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} pv ");
             for (int i = 0; i < pvLength[0]; i++)
@@ -57,11 +59,25 @@ class Search
 
         nodes++;
 
-
         bool isInCheck = MoveGen.IsSquareAttacked(board.side ^ 1, BitUtil.GetLs1bIndex(board.bitPieces[(board.side == 0) ? 5 : 11]), board);
         // increase search depth if the king has been exposed into a check
         if (isInCheck) depth++;
+
         int legalMovesCount = 0;
+
+        if (depth >= 3 && !isInCheck && ply != 0)
+        {
+            Board anotherBoardCopy = Board.Clone(board);
+            // Give opponent an extra move; 2 moves in one turn
+            anotherBoardCopy.side ^= 1;
+            anotherBoardCopy.enPassant = -1;
+            // Search move with reduced depth to find beta-cutoffs
+            int score = -Negamax(ref board, -beta, -beta + 1, depth - 1 - 2);
+            // Fail hard; beta-cutoffs
+            if (score >= beta)
+                return beta;
+            Board.Restore(ref board, anotherBoardCopy);
+        }
 
         // Generate and sort moves to decrease # of nodes searched
         MoveList moveList = new MoveList(board);
@@ -90,7 +106,9 @@ class Search
             // Increment legal moves
             legalMovesCount++;
 
+            // Null move pruning
             int score;
+
             /* Source:
             https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm */
             if (foundPV)
@@ -103,16 +121,24 @@ class Search
             else
             {
                 if (movesSearched == 0)
-                    // Score current move
-                    score = -Negamax(ref board, -beta, -alpha, depth - 1);
+                    score = -Negamax(ref board, -alpha - 1, -alpha, depth - 1);
                 else
                 {
-                    if (movesSearched >= FULL_DEPTH_MOVES && depth >= REDUCTION_LIMIT && !isInCheck)
-                        // Score current move
-                        score = -Negamax(ref board, -beta, -alpha, depth - 1);
+                    if (movesSearched >= FULL_DEPTH_MOVES && depth >= REDUCTION_LIMIT &&
+                        !isInCheck && Move.GetPromoted(moveList.list[i]) == ' ' && !Move.IsCapture(moveList.list[i]))
+                        score = -Negamax(ref board, -alpha - 1, -alpha, depth - 2);
                     else
                         score = alpha + 1;
 
+                    if (score > alpha)
+                    {
+                        // re-search at full depth but with narrowed score bandwith
+                        score = -Negamax(ref board, -alpha - 1, -alpha, depth - 1);
+
+                        // if LMR fails re-search at full depth and full score bandwith
+                        if ((score > alpha) && (score < beta))
+                            score = -Negamax(ref board, -beta, -alpha, depth - 1);
+                    }
                 }
 
             }
@@ -121,6 +147,7 @@ class Search
 
             Board.Restore(ref board, copy);
 
+            movesSearched++;
             // fail-hard beta cutoff
             if (score >= beta)
             {
