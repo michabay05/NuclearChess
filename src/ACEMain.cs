@@ -1,6 +1,6 @@
-﻿namespace ACE.src;
+﻿namespace UCE.src;
 
-class ACEMain
+class UCEMain
 {
     private static int debug = 0;
     static void Main(string[] args)

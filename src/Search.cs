@@ -1,8 +1,10 @@
-﻿namespace ACE.src;
+﻿namespace UCE.src;
 
 
 class Search
 {
+    static readonly int FULL_DEPTH_MOVES = 4;
+    static readonly int REDUCTION_LIMIT = 3;
     static readonly int MAX_PLY = 64;
     // half move counter
     static int ply, nodes;
@@ -66,9 +68,10 @@ class Search
         MoveGen.Generate(ref moveList);
         if (followPV)
             EnablePVScoring(moveList);
-        Search.SortMoves(ref moveList);
+        SortMoves(ref moveList);
 
         Board copy;
+        int movesSearched = 0;
         for (int i = 0; i < moveList.count; i++)
         {
             // preserve board state
@@ -88,7 +91,7 @@ class Search
             legalMovesCount++;
 
             int score;
-            /* Source for foundPV if-else
+            /* Source:
             https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm */
             if (foundPV)
             {
@@ -98,8 +101,21 @@ class Search
                     score = -Negamax(ref board, -beta, -alpha, depth - 1);
             }
             else
-                // Score current move
-                score = -Negamax(ref board, -beta, -alpha, depth - 1);
+            {
+                if (movesSearched == 0)
+                    // Score current move
+                    score = -Negamax(ref board, -beta, -alpha, depth - 1);
+                else
+                {
+                    if (movesSearched >= FULL_DEPTH_MOVES && depth >= REDUCTION_LIMIT && !isInCheck)
+                        // Score current move
+                        score = -Negamax(ref board, -beta, -alpha, depth - 1);
+                    else
+                        score = alpha + 1;
+
+                }
+
+            }
 
             ply--;
 
@@ -176,7 +192,7 @@ class Search
 
         MoveList moveList = new MoveList(board);
         MoveGen.Generate(ref moveList);
-        Search.SortMoves(ref moveList);
+        SortMoves(ref moveList);
 
         Board copy;
         for (int count = 0; count < moveList.count; count++)
