@@ -1,7 +1,7 @@
 ﻿namespace UCE.src;
 
 
-class FENUtil
+class FEN
 {
     private static string[] fenParts = { };
     public static readonly string[] position = {
@@ -40,6 +40,10 @@ class FENUtil
         board.fullMoves = Convert.ToInt32(fenParts[5]);
         board.fullMoves = (board.fullMoves == 1) ? 0 : board.fullMoves;
         board.UpdateUnits();
+
+        // Init hash key
+        board.hashKey = Zobrist.GenHashKey(ref board);
+
         return board;
     }
 

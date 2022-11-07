@@ -2,10 +2,11 @@
 
 class UCEMain
 {
-    private static int debug = 1;
+    private static int debug = -1;
     static void Main(string[] args)
     {
         Precalculate.Init();
+        Zobrist.InitKeys();
 
         if (debug == 0)
             UCI.Loop();
@@ -15,9 +16,15 @@ class UCEMain
 
     static void Test()
     {
-        Board b = FENUtil.Parse(FENUtil.position[2]);
-        b.DisplayBoard();
-        int depth = 6;
-        Search.SearchMove(ref b, depth);
+        TTUtil.ClearTable();
+
+        // Write Example entry
+        Board b = FEN.Parse(FEN.position[2]);
+        TTUtil.WriteEntry(ref b, 4, 21, TT.F_HASH_BETA);
+
+        // Read entry
+        int score = TTUtil.ReadEntry(ref b, 20, 30, 4);
+
+        Console.WriteLine("Score from hash entry: " + score);
     }
 }

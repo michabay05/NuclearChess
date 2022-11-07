@@ -54,14 +54,30 @@ class Magics
         0x5000808104002042ul
     };
 
-    private static ulong Random64bit()
+    private static int randomState = 1804289383;
+    public static int Random32bit()
     {
-        Random rand = new Random();
+        int number = randomState;
+
+        // XOR shift algorithm
+        number ^= number << 13;
+        number ^= number >> 17;
+        number ^= number << 5;
+
+        // update random number state
+        randomState = number;
+
+        // return random number
+        return number;
+    }
+
+    public static ulong Random64bit()
+    {
         ulong rand1, rand2, rand3, rand4;
-        rand1 = (ulong)(rand.NextInt64(0, Int64.MaxValue) & 0xFFFF);
-        rand2 = (ulong)(rand.NextInt64(0, Int64.MaxValue) & 0xFFFF);
-        rand3 = (ulong)(rand.NextInt64(0, Int64.MaxValue) & 0xFFFF);
-        rand4 = (ulong)(rand.NextInt64(0, Int64.MaxValue) & 0xFFFF);
+        rand1 = (ulong)(Random32bit() & 0xFFFF);
+        rand2 = (ulong)(Random32bit() & 0xFFFF);
+        rand3 = (ulong)(Random32bit() & 0xFFFF);
+        rand4 = (ulong)(Random32bit() & 0xFFFF);
         return rand1 | (rand2 << 16) | (rand3 << 32) | (rand4 << 48);
     }
 

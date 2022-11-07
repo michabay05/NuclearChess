@@ -1,13 +1,29 @@
-﻿namespace UCE.src;
+﻿using System.Xml;
+using System.Xml.Schema;
+
+namespace UCE.src;
 
 
 class UCI
 {
-    static Board currBoard = new Board();
+    private static Board currentBoard = new Board();
+    public static bool Stop = false;
+    public static bool Quit = false;
+    public static bool isInfinite = false;
+    public static bool isTimeControlled = false;
+    private static int timeLeft = -1;
+    private static int increment = 0;
+    private static int movesToGo = 40, moveTime = -1;
+    public static long startTime = 0L, stopTime = 0L;
+    public static long MsTime
+    {
+        get => DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+    }
+
 
     public static void Parse(string command)
     {
-        if (command == "")
+        if (command == "" || command == null)
             return;
 
         if (command.IndexOf("isready") != -1)
@@ -26,9 +42,11 @@ class UCI
             Console.WriteLine("uciok");
         }
         else if (command.IndexOf("display") != -1)
-            currBoard.DisplayBoard();
+            currentBoard.Display();
         else if (command.IndexOf("help") != -1)
             Help();
+        else if (command.IndexOf("stop") != -1)
+            Stop = true;
         else
             Console.WriteLine($"Unknown command: {command}");
     }
@@ -36,7 +54,7 @@ class UCI
     public static void Loop()
     {
         // Print engine info
-        Console.WriteLine("id name VCE");
+        Console.WriteLine("id name UCE");
         Console.WriteLine("id author michabay05");
         Console.WriteLine("uciok");
         while (true)
@@ -62,7 +80,7 @@ class UCI
         // Second arguments: startpos fen
         if (cmdParts[0] == "startpos")
         {
-            fen = FENUtil.position[1];
+            fen = FEN.position[1];
             currentIndex += 8;
         }
         else if (cmdParts[0] == "fen" && cmdParts.Length >= 7)
@@ -78,7 +96,7 @@ class UCI
         }
 
         if (fen != "")
-            currBoard = FENUtil.Parse(fen);
+            currentBoard = FEN.Parse(fen);
 
         int movesStart = cmdArgs.IndexOf("moves", currentIndex);
         if (movesStart != -1)
@@ -87,7 +105,7 @@ class UCI
             for (int i = 0; i < moveList.Length; i++)
             {
                 int move = ParseMove(moveList[i]);
-                if (move < 0 || !BoardUtil.MakeMove(ref currBoard, move, MoveType.allMoves))
+                if (move < 0 || !Board.MakeMove(ref currentBoard, move, MoveType.allMoves))
                 {
                     Console.WriteLine($"Move {moveList[i]} is illegal!");
                     continue;
@@ -100,7 +118,7 @@ class UCI
     {
         int move = Move.Encode(moveStr, 0, 0, 0, 0, 0);
 
-        MoveList mL = new MoveList(currBoard);
+        MoveList mL = new MoveList(currentBoard);
         MoveGen.Generate(ref mL);
         move = mL.Search(moveStr);
         return move;
@@ -108,15 +126,65 @@ class UCI
 
     private static void Go(string cmdArgs)
     {
+        if (cmdArgs == "")
+            return;
+        int currentIndex, depth = -1;
         // UCI extension -> took from stockfish
-        if (cmdArgs.IndexOf("perft") != -1)
-            Perft.Test(ref currBoard, Convert.ToInt32(cmdArgs.Substring(6).Trim()));
-        else if (cmdArgs.IndexOf("depth") != -1)
-            Search.SearchMove(ref currBoard, Convert.ToInt32(cmdArgs.Substring(6).Trim()));
+        if ((currentIndex = cmdArgs.IndexOf("perft")) != -1)
+        {
+            Perft.Test(ref currentBoard, Convert.ToInt32(cmdArgs.Substring(currentIndex + 6)));
+            return;
+        }
+        ParseParam(cmdArgs, "depth", ref depth);
+
+        // Time control related commands
+        // Example command: "go depth 6 wtime 180000 btime 100000 binc 1000 winc 1000 movetime 1000 movestogo 40" 
+        if (currentBoard.side == 0)
+        {
+            ParseParam(cmdArgs, "wtime", ref timeLeft);
+            ParseParam(cmdArgs, "winc", ref increment);
+        }
         else
         {
-            Search.SearchMove(ref currBoard, 5);
-            Console.WriteLine($"Unknown command: go {cmdArgs}");
+            ParseParam(cmdArgs, "btime", ref timeLeft);
+            ParseParam(cmdArgs, "binc", ref increment);
+        }
+        ParseParam(cmdArgs, "movetime", ref moveTime);
+        ParseParam(cmdArgs, "movestogo", ref movesToGo);
+
+        // If time for each move is set
+        if (moveTime != -1)
+        {
+            timeLeft = moveTime;
+            movesToGo = 1;
+        }
+        startTime = MsTime;
+        // If time control is available
+        if (timeLeft != -1)
+        {
+            isTimeControlled = true;
+            timeLeft /= movesToGo;
+            // Just to be safe, reduce time per move by 50 ms
+            timeLeft -= 50;
+            stopTime = startTime + timeLeft + increment;
+        }
+
+        // If depth not set, set default value
+        if (depth == -1)
+            depth = Search.MAX_PLY; // i.e. 64 plies
+        Search.SearchMove(ref currentBoard, depth);
+    }
+
+    private static void ParseParam(string cmdArgs, string cmdName, ref int output)
+    {
+        int currentIndex, nextSpaceInd;
+        string param;
+        if ((currentIndex = cmdArgs.IndexOf(cmdName)) != -1 && cmdArgs.Length >= cmdName.Length + 1)
+        {
+            param = cmdArgs.Substring(currentIndex + cmdName.Length + 1);
+            if ((nextSpaceInd = param.IndexOf(" ")) != -1)
+                param = param.Substring(0, nextSpaceInd);
+            output = Convert.ToInt32(param);
         }
     }
 
@@ -144,5 +212,12 @@ class UCI
         if (input == null)
             return;
         output = input;
+    }
+
+    public static void Communicate()
+    {
+        // Set stop to true, when time is up
+        if (isTimeControlled && MsTime >= stopTime)
+            Stop = true;
     }
 }

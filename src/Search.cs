@@ -5,7 +5,7 @@ class Search
 {
     static readonly int FULL_DEPTH_MOVES = 4;
     static readonly int REDUCTION_LIMIT = 3;
-    static readonly int MAX_PLY = 64;
+    public static readonly int MAX_PLY = 64;
     // half move counter
     static int ply, nodes;
 
@@ -31,12 +31,30 @@ class Search
         scorePV = false;
         nodes = 0;
 
+        UCI.Stop = false;
+
+        int alpha = -50000, beta = 50000;
         // Iterative deepening
         for (int currentDepth = 1; currentDepth <= depth; currentDepth++)
         {
+            if (UCI.Stop)
+                break;
             followPV = true;
-            score = Negamax(ref board, -50000, 50000, currentDepth);
-            Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} pv ");
+            // Find best move in position
+            score = Negamax(ref board, alpha, beta, currentDepth);
+
+            // Aspiration window
+            if ((score <= alpha) || (score >= beta))
+            {
+                alpha = -50000;
+                beta = 50000;
+                continue;
+            }
+            // Set up the window for the next iteration
+            alpha = score - 50;
+            beta = score + 50;
+
+            Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} time {UCI.MsTime - UCI.startTime} pv ");
             for (int i = 0; i < pvLength[0]; i++)
                 Console.Write(Move.ToString(pvTable[0, i]) + " ");
             Console.WriteLine();
@@ -47,7 +65,11 @@ class Search
     // negamax alpha beta search
     private static int Negamax(ref Board board, int alpha, int beta, int depth)
     {
-        bool foundPV = false;
+        // every 2047 nodes
+        if ((nodes & 2047) == 0)
+            // "listen" to the GUI/user input
+            UCI.Communicate();
+
         pvLength[ply] = ply;
         // Escape condition
         if (depth == 0)
@@ -69,14 +91,16 @@ class Search
         {
             Board anotherBoardCopy = Board.Clone(board);
             // Give opponent an extra move; 2 moves in one turn
-            anotherBoardCopy.side ^= 1;
-            anotherBoardCopy.enPassant = -1;
+            board.side ^= 1;
+            board.enPassant = -1;
             // Search move with reduced depth to find beta-cutoffs
             int score = -Negamax(ref board, -beta, -beta + 1, depth - 1 - 2);
+            Board.Restore(ref board, anotherBoardCopy);
+            // When timer runs out, return 0;
+            if (UCI.Stop) return 0;
             // Fail hard; beta-cutoffs
             if (score >= beta)
                 return beta;
-            Board.Restore(ref board, anotherBoardCopy);
         }
 
         // Generate and sort moves to decrease # of nodes searched
@@ -96,7 +120,7 @@ class Search
             ply++;
 
             // make sure to make only legal moves
-            if (!BoardUtil.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
+            if (!Board.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
             {
                 // decrement ply
                 ply--;
@@ -109,43 +133,34 @@ class Search
             // Null move pruning
             int score;
 
-            /* Source:
-            https://web.archive.org/web/20071030220825/http://www.brucemo.com/compchess/programming/pvs.htm */
-            if (foundPV)
-            {
-                score = -Negamax(ref board, -alpha - 1, -alpha, depth - 1);
-
-                if ((score > alpha) && (score < beta)) // Check for failure.
-                    score = -Negamax(ref board, -beta, -alpha, depth - 1);
-            }
+            if (movesSearched == 0)
+                // Do normal alpha-beta search
+                score = -Negamax(ref board, -beta, -alpha, depth - 1);
             else
             {
-                if (movesSearched == 0)
-                    score = -Negamax(ref board, -alpha - 1, -alpha, depth - 1);
+                if (movesSearched >= FULL_DEPTH_MOVES && depth >= REDUCTION_LIMIT &&
+                    !isInCheck && Move.GetPromoted(moveList.list[i]) == ' ' && !Move.IsCapture(moveList.list[i]))
+                    score = -Negamax(ref board, -alpha - 1, -alpha, depth - 2);
                 else
+                    score = alpha + 1;
+
+                if (score > alpha)
                 {
-                    if (movesSearched >= FULL_DEPTH_MOVES && depth >= REDUCTION_LIMIT &&
-                        !isInCheck && Move.GetPromoted(moveList.list[i]) == ' ' && !Move.IsCapture(moveList.list[i]))
-                        score = -Negamax(ref board, -alpha - 1, -alpha, depth - 2);
-                    else
-                        score = alpha + 1;
+                    // re-search at full depth but with narrowed score bandwith
+                    score = -Negamax(ref board, -alpha - 1, -alpha, depth - 1);
 
-                    if (score > alpha)
-                    {
-                        // re-search at full depth but with narrowed score bandwith
-                        score = -Negamax(ref board, -alpha - 1, -alpha, depth - 1);
-
-                        // if LMR fails re-search at full depth and full score bandwith
-                        if ((score > alpha) && (score < beta))
-                            score = -Negamax(ref board, -beta, -alpha, depth - 1);
-                    }
+                    // if LMR fails re-search at full depth and full score bandwith
+                    if ((score > alpha) && (score < beta))
+                        score = -Negamax(ref board, -beta, -alpha, depth - 1);
                 }
-
             }
 
             ply--;
 
             Board.Restore(ref board, copy);
+
+            // When timer runs out, return 0;
+            if (UCI.Stop) return 0;
 
             movesSearched++;
             // fail-hard beta cutoff
@@ -170,9 +185,6 @@ class Search
 
                 // PV node (move)
                 alpha = score;
-
-                // Enable foundPV flag
-                foundPV = true;
 
                 // Write PV moves
                 pvTable[ply, ply] = moveList.list[i];
@@ -204,6 +216,11 @@ class Search
 
     private static int Quiescence(ref Board board, int alpha, int beta)
     {
+        // every 2047 nodes
+        if ((nodes & 2047) == 0)
+            // "listen" to the GUI/user input
+            UCI.Communicate();
+
         nodes++;
 
         // Escape condition - fail-hard beta cutoff
@@ -230,7 +247,7 @@ class Search
             ply++;
 
             // make sure to make only legal moves
-            if (!BoardUtil.MakeMove(ref board, moveList.list[count], MoveType.onlyCaptures))
+            if (!Board.MakeMove(ref board, moveList.list[count], MoveType.onlyCaptures))
             {
                 ply--;
                 continue;
@@ -242,6 +259,9 @@ class Search
             ply--;
 
             Board.Restore(ref board, copy);
+
+            // When timer runs out, return 0;
+            if (UCI.Stop) return 0;
 
             // fail-hard beta cutoff
             if (score >= beta)

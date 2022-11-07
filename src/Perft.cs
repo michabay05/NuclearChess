@@ -28,7 +28,7 @@ class Perft
             copy = Board.Clone(board);
 
             // Is generated move legal?
-            if (!BoardUtil.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
+            if (!Board.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
                 continue;
 
             // Recursively generate moves
@@ -36,6 +36,17 @@ class Perft
 
             // Restore board
             Board.Restore(ref board, copy);
+
+            /* ============= FOR DEBUGGING PURPOSES ONLY ===============
+            ulong hashFromScratch = Zobrist.GenHashKey(ref board);
+            if (board.hashKey != hashFromScratch)
+            {
+                Console.WriteLine($"Perft.Driver({Move.ToString(moveList.list[i])})");
+                board.Display();
+                Console.WriteLine($"Hash should've been {hashFromScratch:X}");
+                Console.ReadLine();
+            }
+             ============= FOR DEBUG PURPOSES ONLY =============== */
         }
     }
 
@@ -63,7 +74,7 @@ class Perft
             copy = Board.Clone(board);
 
             // Is generated move legal?
-            if (!BoardUtil.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
+            if (!Board.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
                 continue;
 
             long totalNodes = nodes;
