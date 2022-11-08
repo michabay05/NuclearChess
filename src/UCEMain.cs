@@ -2,10 +2,12 @@
 
 class UCEMain
 {
-    private static int debug = 0;
+    private static int debug = 1;
     static void Main(string[] args)
     {
+        BoardUtil.InitRankFileMasks();
         Precalculate.Init();
+        Eval.InitMasks();
         Zobrist.InitKeys();
         TTUtil.ClearTable();
 
@@ -17,9 +19,9 @@ class UCEMain
 
     static void Test()
     {
-        string fen = "2r3k1/R7/8/1R6/8/8/P4KPP/8 w - - 0 40";
-        Board b = FEN.Parse(fen);
-        b.Display();
-        Search.SearchMove(ref b, 10);
+        string fen = "6k1/ppppprbp/8/8/8/8/PPPPPRBP/6K1 w - - 0 1";
+        Board a = FEN.Parse(fen);
+        a.Display();
+        Console.WriteLine($"Score: {Eval.Evaluate(ref a)}");
     }
 }

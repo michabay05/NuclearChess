@@ -94,16 +94,16 @@ class Precalculate
     {
         if (color == 0) // WHITE
         {
-            if (BoardUtil.rows[sq] < 7 && BoardUtil.cols[sq] > 0)
+            if (BoardUtil.ranks[sq] < 7 && BoardUtil.files[sq] > 0)
                 BitUtil.SetBit(ref pawnAttacks[color, sq], sq + (int)Direction.SW);
-            if (BoardUtil.rows[sq] < 7 && BoardUtil.cols[sq] < 7)
+            if (BoardUtil.ranks[sq] < 7 && BoardUtil.files[sq] < 7)
                 BitUtil.SetBit(ref pawnAttacks[color, sq], sq + (int)Direction.SE);
         }
         else // BLACK
         {
-            if (BoardUtil.rows[sq] > 0 && BoardUtil.cols[sq] > 0)
+            if (BoardUtil.ranks[sq] > 0 && BoardUtil.files[sq] > 0)
                 BitUtil.SetBit(ref pawnAttacks[color, sq], sq + (int)Direction.NW);
-            if (BoardUtil.rows[sq] > 0 && BoardUtil.cols[sq] < 7)
+            if (BoardUtil.ranks[sq] > 0 && BoardUtil.files[sq] < 7)
                 BitUtil.SetBit(ref pawnAttacks[color, sq], sq + (int)Direction.NE);
         }
     }
@@ -111,41 +111,41 @@ class Precalculate
     public static void GenKnightAttacks(int sq)
     {
         // TODO: KNIGHT MOVES FOR G1 - NOT WORKING
-        if (BoardUtil.rows[sq] <= 5 && BoardUtil.cols[sq] >= 1)
+        if (BoardUtil.ranks[sq] <= 5 && BoardUtil.files[sq] >= 1)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.SW_S);  // - 17
-        if (BoardUtil.rows[sq] <= 6 && BoardUtil.cols[sq] >= 2)
+        if (BoardUtil.ranks[sq] <= 6 && BoardUtil.files[sq] >= 2)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.SW_W);  // - 10
-        if (BoardUtil.rows[sq] <= 6 && BoardUtil.cols[sq] <= 5)
+        if (BoardUtil.ranks[sq] <= 6 && BoardUtil.files[sq] <= 5)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.SE_E);  // - 6
-        if (BoardUtil.rows[sq] <= 5 && BoardUtil.cols[sq] <= 6)
+        if (BoardUtil.ranks[sq] <= 5 && BoardUtil.files[sq] <= 6)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.SE_S);  // - 15
-        if (BoardUtil.rows[sq] >= 2 && BoardUtil.cols[sq] <= 6)
+        if (BoardUtil.ranks[sq] >= 2 && BoardUtil.files[sq] <= 6)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.NE_N);  // + 17
-        if (BoardUtil.rows[sq] >= 1 && BoardUtil.cols[sq] <= 5)
+        if (BoardUtil.ranks[sq] >= 1 && BoardUtil.files[sq] <= 5)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.NE_E);  // + 10
-        if (BoardUtil.rows[sq] >= 1 && BoardUtil.cols[sq] >= 2)
+        if (BoardUtil.ranks[sq] >= 1 && BoardUtil.files[sq] >= 2)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.NW_W);  // + 6
-        if (BoardUtil.rows[sq] >= 2 && BoardUtil.cols[sq] >= 1)
+        if (BoardUtil.ranks[sq] >= 2 && BoardUtil.files[sq] >= 1)
             BitUtil.SetBit(ref knightAttacks[sq], sq + (int)Direction.NW_N);  // + 15
     }
 
     public static void GenKingAttacks(int sq)
     {
-        if (BoardUtil.rows[sq] > 0)
+        if (BoardUtil.ranks[sq] > 0)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.N);
-        if (BoardUtil.rows[sq] < 7)
+        if (BoardUtil.ranks[sq] < 7)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.S);
-        if (BoardUtil.cols[sq] > 0)
+        if (BoardUtil.files[sq] > 0)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.W);
-        if (BoardUtil.cols[sq] < 7)
+        if (BoardUtil.files[sq] < 7)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.E);
-        if (BoardUtil.rows[sq] > 0 && BoardUtil.cols[sq] > 0)
+        if (BoardUtil.ranks[sq] > 0 && BoardUtil.files[sq] > 0)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.NW);
-        if (BoardUtil.rows[sq] > 0 && BoardUtil.cols[sq] < 7)
+        if (BoardUtil.ranks[sq] > 0 && BoardUtil.files[sq] < 7)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.NE);
-        if (BoardUtil.rows[sq] < 7 && BoardUtil.cols[sq] > 0)
+        if (BoardUtil.ranks[sq] < 7 && BoardUtil.files[sq] > 0)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.SW);
-        if (BoardUtil.rows[sq] < 7 && BoardUtil.cols[sq] < 7)
+        if (BoardUtil.ranks[sq] < 7 && BoardUtil.files[sq] < 7)
             BitUtil.SetBit(ref kingAttacks[sq], sq + (int)Direction.SE);
     }
 
