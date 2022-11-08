@@ -3,20 +3,30 @@
 
 class Search
 {
-    static readonly int FULL_DEPTH_MOVES = 4;
-    static readonly int REDUCTION_LIMIT = 3;
+    private static readonly int FULL_DEPTH_MOVES = 4;
+    private static readonly int REDUCTION_LIMIT = 3;
     public static readonly int MAX_PLY = 64;
+
+    // Mating score bounds
+    private static readonly int INFINITY = 50000;
+    public static readonly int MATE_VALUE = 49000; // Upper bound
+    public static readonly int MATE_SCORE = 48000; // Lower bound
+    /*
+        Score layout
+        -INFINITY < -MATE_VALUE < -MATE_SCORE < NORMAL (non-mating) score < MATE_SCORE < MATE_VALUE < INFINITY
+     */
+
     // half move counter
-    static int ply, nodes;
+    public static int ply, nodes;
 
     // PV flags
-    static bool followPV, scorePV;
+    private static bool followPV, scorePV;
 
     // Killer moves: Moves that cause beta-cuttoffs and are quiet moves
-    static int[,] killerMoves = new int[2, MAX_PLY]; // [id, ply]
-    static int[,] historyMoves = new int[12, 64]; // [piece, square]
-    static int[] pvLength = new int[MAX_PLY];
-    static int[,] pvTable = new int[MAX_PLY, MAX_PLY];
+    private static int[,] killerMoves = new int[2, MAX_PLY]; // [id, ply]
+    private static int[,] historyMoves = new int[12, 64]; // [piece, square]
+    private static int[] pvLength = new int[MAX_PLY];
+    public static int[,] pvTable = new int[MAX_PLY, MAX_PLY];
 
     public static void SearchMove(ref Board board, int depth)
     {
@@ -33,7 +43,8 @@ class Search
 
         UCI.Stop = false;
 
-        int alpha = -50000, beta = 50000;
+        // Initial alpha & beta bounds
+        int alpha = -INFINITY, beta = INFINITY;
         // Iterative deepening
         for (int currentDepth = 1; currentDepth <= depth; currentDepth++)
         {
@@ -46,15 +57,22 @@ class Search
             // Aspiration window
             if ((score <= alpha) || (score >= beta))
             {
-                alpha = -50000;
-                beta = 50000;
+                alpha = -INFINITY;
+                beta = INFINITY;
                 continue;
             }
             // Set up the window for the next iteration
             alpha = score - 50;
             beta = score + 50;
 
-            Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} time {UCI.MsTime - UCI.startTime} pv ");
+            // Print information about current depth
+            if (score > -MATE_VALUE && score < -MATE_SCORE)
+                Console.Write($"info score mate {-(score + MATE_VALUE) / 2} depth {currentDepth} nodes {nodes} pv ");
+            else if (score > MATE_SCORE && score < MATE_VALUE)
+                Console.Write($"info score mate {(MATE_VALUE - score) / 2} depth {currentDepth} nodes {nodes} pv ");
+            else
+                Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} pv ");
+
             for (int i = 0; i < pvLength[0]; i++)
                 Console.Write(Move.ToString(pvTable[0, i]) + " ");
             Console.WriteLine();
@@ -65,6 +83,23 @@ class Search
     // negamax alpha beta search
     private static int Negamax(ref Board board, int alpha, int beta, int depth)
     {
+        // Stores current move's score
+        int score;
+        int hashFlag = TT.F_HASH_ALPHA;
+
+        // If position has been repeated
+        if (ply > 0 && isRepetition(ref board))
+            // Return draw score
+            return 0;
+
+
+        bool isPVNode = (beta - alpha) > 1;
+
+        // If score of current position exists, return score instead of searching
+        // Reads hash entry if not root ply, score for current position exists and isn't pv node
+        if (ply > 0 && (score = TTUtil.ReadEntry(ref board, alpha, beta, depth)) != TTUtil.NO_HASH_ENTRY && !isPVNode)
+            return score;
+
         // every 2047 nodes
         if ((nodes & 2047) == 0)
             // "listen" to the GUI/user input
@@ -79,6 +114,7 @@ class Search
         if (ply > MAX_PLY - 1)
             return Eval.Evaluate(ref board);
 
+        // Increment node count
         nodes++;
 
         bool isInCheck = MoveGen.IsSquareAttacked(board.side ^ 1, BitUtil.GetLs1bIndex(board.bitPieces[(board.side == 0) ? 5 : 11]), board);
@@ -87,14 +123,28 @@ class Search
 
         int legalMovesCount = 0;
 
+        // NULL move pruning
         if (depth >= 3 && !isInCheck && ply != 0)
         {
             Board anotherBoardCopy = Board.Clone(board);
+            ply++;
+            // Increment repetition
+            board.repetitionIndex++;
+            board.repetitionTable[board.repetitionIndex] = board.hashKey;
+            // Hash enpassant, if available
+            if (board.enPassant != -1) board.hashKey ^= Zobrist.enPassantKeys[board.enPassant];
+            board.enPassant = -1;
+
             // Give opponent an extra move; 2 moves in one turn
             board.side ^= 1;
-            board.enPassant = -1;
+            // Hash side to move 
+            board.hashKey ^= Zobrist.sideKey;
+
             // Search move with reduced depth to find beta-cutoffs
-            int score = -Negamax(ref board, -beta, -beta + 1, depth - 1 - 2);
+            score = -Negamax(ref board, -beta, -beta + 1, depth - 1 - 2);
+            ply--;
+            // Decrement repetition
+            board.repetitionIndex--;
             Board.Restore(ref board, anotherBoardCopy);
             // When timer runs out, return 0;
             if (UCI.Stop) return 0;
@@ -119,31 +169,37 @@ class Search
 
             ply++;
 
-            // make sure to make only legal moves
+            // Increment repetition
+            board.repetitionIndex++;
+            board.repetitionTable[board.repetitionIndex] = board.hashKey;
+
+            // Make sure to make only legal moves
             if (!Board.MakeMove(ref board, moveList.list[i], MoveType.allMoves))
             {
-                // decrement ply
+                // Decrement ply
                 ply--;
+                // Decrement repetition
+                board.repetitionIndex--;
                 continue;
             }
 
             // Increment legal moves
             legalMovesCount++;
 
-            // Null move pruning
-            int score;
-
+            // Full depth search
             if (movesSearched == 0)
                 // Do normal alpha-beta search
                 score = -Negamax(ref board, -beta, -alpha, depth - 1);
-            else
+            else // Late move reduction (LMR)
             {
                 if (movesSearched >= FULL_DEPTH_MOVES && depth >= REDUCTION_LIMIT &&
                     !isInCheck && Move.GetPromoted(moveList.list[i]) == ' ' && !Move.IsCapture(moveList.list[i]))
                     score = -Negamax(ref board, -alpha - 1, -alpha, depth - 2);
                 else
+                    // Hack to ensure full depth search is done
                     score = alpha + 1;
 
+                // PVS (Principal Variation Search)
                 if (score > alpha)
                 {
                     // re-search at full depth but with narrowed score bandwith
@@ -156,6 +212,8 @@ class Search
             }
 
             ply--;
+            // Decrement repetition
+            board.repetitionIndex--;
 
             Board.Restore(ref board, copy);
 
@@ -163,22 +221,13 @@ class Search
             if (UCI.Stop) return 0;
 
             movesSearched++;
-            // fail-hard beta cutoff
-            if (score >= beta)
-            {
-                if (!Move.IsCapture(moveList.list[i]))
-                {
-                    // Store killer moves
-                    killerMoves[1, ply] = killerMoves[0, ply];
-                    killerMoves[0, ply] = moveList.list[i];
-                }
-                // node (move) fails high
-                return beta;
-            }
 
             // found a better move
             if (score > alpha)
             {
+                // Switch flag to EXACT(PV node) from ALPHA (fail-low node)
+                hashFlag = TT.F_HASH_EXACT;
+
                 if (!Move.IsCapture(moveList.list[i]))
                     // Store history moves
                     historyMoves[Move.GetPiece(moveList.list[i]), Move.GetTarget(moveList.list[i])] += depth;
@@ -195,6 +244,22 @@ class Search
 
                 // Adjust PV length
                 pvLength[ply] = pvLength[ply + 1];
+
+                // fail-hard beta cutoff
+                if (score >= beta)
+                {
+                    // Store hash entry with score equal to beta
+                    TTUtil.WriteEntry(ref board, depth, beta, TT.F_HASH_BETA);
+
+                    if (!Move.IsCapture(moveList.list[i]))
+                    {
+                        // Store killer moves
+                        killerMoves[1, ply] = killerMoves[0, ply];
+                        killerMoves[0, ply] = moveList.list[i];
+                    }
+                    // node (move) fails high
+                    return beta;
+                }
             }
         }
 
@@ -204,11 +269,15 @@ class Search
             // Possible mate
             if (isInCheck)
                 // Mating score
-                return -49000 + ply;
+                // if 49000 is returned, mate is on the board
+                // if not, there are ply number of moves before mate is on the board 
+                return -MATE_VALUE + ply;
             // Stalemate
             else
                 return 0;
         }
+        // Store hash entry with score equal to alpha
+        TTUtil.WriteEntry(ref board, depth, alpha, hashFlag);
 
         // node (move) fails low
         return alpha;
@@ -225,6 +294,10 @@ class Search
 
         // Escape condition - fail-hard beta cutoff
         int eval = Eval.Evaluate(ref board);
+        // Exit if ply > max ply; ply should be <= 63
+        if (ply > MAX_PLY - 1)
+            return eval;
+
         if (eval >= beta)
             // node (move) fails high
             return beta;
@@ -246,10 +319,16 @@ class Search
 
             ply++;
 
+            // Increment repetition
+            board.repetitionIndex++;
+            board.repetitionTable[board.repetitionIndex] = board.hashKey;
+
             // make sure to make only legal moves
             if (!Board.MakeMove(ref board, moveList.list[count], MoveType.onlyCaptures))
             {
                 ply--;
+                // Decrement repetition
+                board.repetitionIndex--;
                 continue;
             }
 
@@ -257,24 +336,39 @@ class Search
             int score = -Quiescence(ref board, -beta, -alpha);
 
             ply--;
+            // Decrement repetition
+            board.repetitionIndex--;
 
             Board.Restore(ref board, copy);
 
             // When timer runs out, return 0;
             if (UCI.Stop) return 0;
 
-            // fail-hard beta cutoff
-            if (score >= beta)
-                // node (move) fails high
-                return beta;
-
             // found a better move
             if (score > alpha)
+            {
                 // PV node (move)
                 alpha = score;
 
+                // fail-hard beta cutoff
+                if (score >= beta)
+                    // node (move) fails high
+                    return beta;
+            }
         }
         return alpha;
+    }
+
+    private static bool isRepetition(ref Board board)
+    {
+        for (int i = 0; i < board.repetitionIndex; i++)
+        {
+            if (board.repetitionTable[i] == board.hashKey)
+                // Found a repetition
+                return true;
+        }
+        // If no repetition found, return false
+        return false;
     }
 
     private static int ScoreMove(Board board, int move)

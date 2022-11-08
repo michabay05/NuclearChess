@@ -12,6 +12,8 @@ class Board
     public int halfMoves;
     public int fullMoves;
     public ulong hashKey;
+    public ulong[] repetitionTable;
+    public int repetitionIndex;
 
     public Board()
     {
@@ -24,6 +26,9 @@ class Board
         fullMoves = 0;
         castling = 0;
         hashKey = 0L;
+        // 1000 refers to # of plys: (500 moves) just for safety
+        repetitionTable = new ulong[1000];
+        repetitionIndex = 0;
     }
 
     public void UpdateUnits()

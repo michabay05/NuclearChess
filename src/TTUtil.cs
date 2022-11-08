@@ -4,8 +4,8 @@ class TTUtil
 {
     // Default hash size: 4 megabytes
     public static readonly int HASH_SIZE = 0x400000;
+    public static readonly int NO_HASH_ENTRY = 100_000;
 
-    private static readonly int NO_HASH_ENTRY = 100_000;
     private static TT[] hashTable = new TT[HASH_SIZE];
 
     public static void ClearTable()
@@ -23,6 +23,11 @@ class TTUtil
         // Check if hashTable ID and board ID is the same
         if (ttable.hashKey == board.hashKey)
         {
+            // Extract score from hash entry
+            int score = ttable.score;
+            if (score < -Search.MATE_SCORE) score += Search.ply;
+            if (score > Search.MATE_SCORE) score -= Search.ply;
+
             // Check if depth is the same
             if (ttable.depth >= depth)
             {
@@ -30,10 +35,10 @@ class TTUtil
                 if (ttable.flag == TT.F_HASH_EXACT)
                     return ttable.score;
                 // Match ALPHA (fail-low node) score
-                if ((ttable.flag == TT.F_HASH_ALPHA) && (ttable.score <= alpha))
+                if ((ttable.flag == TT.F_HASH_ALPHA) && (score <= alpha))
                     return alpha;
                 // Match BETA (fail-high node) score
-                if ((ttable.flag == TT.F_HASH_BETA) && (ttable.score >= beta))
+                if ((ttable.flag == TT.F_HASH_BETA) && (score >= beta))
                     return beta;
             }
         }
@@ -46,6 +51,9 @@ class TTUtil
         // Hash table index that stores particular hash entry for current board
         // and the scoring data, if available
         ulong index = board.hashKey % (ulong)HASH_SIZE;
+
+        if (score < -Search.MATE_SCORE) score -= Search.ply;
+        if (score > Search.MATE_SCORE) score += Search.ply;
 
         // Write entry into hash table
         hashTable[index].hashKey = board.hashKey;
@@ -81,6 +89,6 @@ struct TT
         else if (flag == 1) flagStr = "alpha";
         else if (flag == 2) flagStr = "beta";
 
-        return $"Hash Key: {hashKey}\n   Score: {score}\n   Depth: {depth}\n    Flag: {flagStr}\n"; 
-    } 
+        return $"Hash Key: {hashKey}\n   Score: {score}\n   Depth: {depth}\n    Flag: {flagStr}\n";
+    }
 }

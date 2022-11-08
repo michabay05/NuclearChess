@@ -29,15 +29,18 @@ class UCI
         if (command.IndexOf("isready") != -1)
             Console.WriteLine("readyok");
         else if (command.IndexOf("position") != -1)
+        {
             Position(command.Substring(9));
-        else if (command.IndexOf("go") != -1)
-            Go(command.Substring(3));
+            TTUtil.ClearTable();
+        }
         else if (command.IndexOf("ucinewgame") != -1)
             Position("startpos");
+        else if (command.IndexOf("go") != -1)
+            Go(command.Substring(3));
         else if (command.IndexOf("uci") != -1)
         {
             // Print engine info
-            Console.WriteLine("id name VCE");
+            Console.WriteLine("id name UCE");
             Console.WriteLine("id author michabay05");
             Console.WriteLine("uciok");
         }
@@ -101,27 +104,27 @@ class UCI
         int movesStart = cmdArgs.IndexOf("moves", currentIndex);
         if (movesStart != -1)
         {
-            string[] moveList = cmdArgs.Substring(movesStart + 5).Trim().Split(" ");
-            for (int i = 0; i < moveList.Length; i++)
+            string[] listOfMoves = cmdArgs.Substring(movesStart + 5).Trim().Split(" ");
+            for (int i = 0; i < listOfMoves.Length; i++)
             {
-                int move = ParseMove(moveList[i]);
-                if (move < 0 || !Board.MakeMove(ref currentBoard, move, MoveType.allMoves))
-                {
-                    Console.WriteLine($"Move {moveList[i]} is illegal!");
-                    continue;
-                }
+                int move = ParseMove(listOfMoves[i]);
+                if (move == 0)
+                    break;
+
+                // Increment repetition
+                currentBoard.repetitionIndex++;
+                currentBoard.repetitionTable[currentBoard.repetitionIndex] = currentBoard.hashKey;
+
+                Board.MakeMove(ref currentBoard, move, MoveType.allMoves);
             }
         }
     }
 
     private static int ParseMove(string moveStr)
     {
-        int move = Move.Encode(moveStr, 0, 0, 0, 0, 0);
-
         MoveList mL = new MoveList(currentBoard);
         MoveGen.Generate(ref mL);
-        move = mL.Search(moveStr);
-        return move;
+        return mL.Search(moveStr);
     }
 
     private static void Go(string cmdArgs)
