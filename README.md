@@ -7,7 +7,10 @@ This is a bitboard-based chess engine written in C# that follows the UCI protoco
 - Magic bitboards to calculate moves for sliding pieces
 
 ## Resources used
-- [Bitboard Chess Engine YouTube PlayList](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs)
+- Bitboard Chess Engine YouTube PlayList
+	- [YouTube Playlist](https://www.youtube.com/playlist?list=PLmN0neTso3Jxh8ZIylk74JpwfiWNI76Cs) 
+	- [GitHub](https://github.com/maksimKorzh/chess_programming/tree/master/src/bbc)
+		- [Transposition Table Mating Scores](https://github.com/maksimKorzh/chess_programming/blob/master/src/bbc/tt_search_mating_scores/TT_mate_scoring.txt)
 - [List of UCI Protocol commands](https://gist.github.com/aliostad/f4470274f39d29b788c1b09519e67372)
 - [Evaluations for Engines](https://www.chessprogramming.org/Simplified_Evaluation_Function)
 - Web archives
