@@ -168,7 +168,7 @@ class UCI
             isTimeControlled = true;
             timeLeft /= movesToGo;
             // Just to be safe, reduce time per move by 50 ms
-            timeLeft -= 50;
+            if (timeLeft > 1500) timeLeft -= 50;
             stopTime = startTime + timeLeft + increment;
         }
 

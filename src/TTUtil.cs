@@ -3,7 +3,7 @@
 class TTUtil
 {
     // Default hash size: 4 megabytes
-    public static readonly int HASH_SIZE = 0x400000;
+    public static readonly int HASH_SIZE = 800_000;
     public static readonly int NO_HASH_ENTRY = 100_000;
 
     private static TT[] hashTable = new TT[HASH_SIZE];
