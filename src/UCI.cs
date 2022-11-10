@@ -6,6 +6,7 @@ namespace UCE.src;
 class UCI
 {
     private static Board currentBoard = new Board();
+    private static string currentFen = "";
     public static bool Stop = false;
     public static bool Quit = false;
     public static bool isInfinite = false;
@@ -45,6 +46,8 @@ class UCI
         }
         else if (command.IndexOf("display") != -1)
             currentBoard.Display();
+        else if (command.IndexOf("getfen") != -1)
+            Console.WriteLine("FEN: " + currentFen);
         else if (command.IndexOf("help") != -1)
             Help();
         else if (command.IndexOf("stop") != -1)
@@ -75,21 +78,23 @@ class UCI
     private static void Position(string cmdArgs)
     {
         // Possible options: fen, startpos
-        string fen = "";
         string[] cmdParts = cmdArgs.Split(" ");
         int currentIndex = 0;
+
+        // Reset current fen
+        currentFen = "";
 
         // Second arguments: startpos fen
         if (cmdParts[0] == "startpos")
         {
-            fen = FEN.position[1];
+            currentFen = FEN.position[1];
             currentIndex += 8;
         }
         else if (cmdParts[0] == "fen" && cmdParts.Length >= 7)
         {
             for (int i = 0; i < 6; i++)
-                fen += cmdParts[1 + i] + " ";
-            currentIndex += 3 + fen.Length;
+                currentFen += cmdParts[1 + i] + " ";
+            currentIndex += 3 + currentFen.Length;
         }
         else
         {
@@ -97,8 +102,8 @@ class UCI
             return;
         }
 
-        if (fen != "")
-            currentBoard = FEN.Parse(fen);
+        if (currentFen != "")
+            currentBoard = FEN.Parse(currentFen);
 
         int movesStart = cmdArgs.IndexOf("moves", currentIndex);
         if (movesStart != -1)
