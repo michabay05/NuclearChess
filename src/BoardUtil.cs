@@ -6,30 +6,6 @@ class BoardUtil
     public static ulong[] fileMasks = new ulong[64]; // square
     public static ulong[] rankMasks = new ulong[64]; // square
 
-    public static readonly int[] ranks =
-    {
-        7, 7, 7, 7, 7, 7, 7, 7,
-        6, 6, 6, 6, 6, 6, 6, 6,
-        5, 5, 5, 5, 5, 5, 5, 5,
-        4, 4, 4, 4, 4, 4, 4, 4,
-        3, 3, 3, 3, 3, 3, 3, 3,
-        2, 2, 2, 2, 2, 2, 2, 2,
-        1, 1, 1, 1, 1, 1, 1, 1,
-        0, 0, 0, 0, 0, 0, 0, 0
-    };
-
-    public static readonly int[] files =
-    {
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7,
-        0, 1, 2, 3, 4, 5, 6, 7
-    };
-
     // Mirror board from black's side 
     public static readonly int[] flip =
     {
@@ -84,4 +60,7 @@ class BoardUtil
             }
         }
     }
+
+    public static int GetRank(int sq) => sq >> 3;
+    public static int GetFile(int sq) => sq & 7;
 }
