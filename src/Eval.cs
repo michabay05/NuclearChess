@@ -504,7 +504,6 @@ class Eval
             whitePieceScore += BitUtil.CountBits(board.bitPieces[piece]) * materialScore[(int)Phase.OPENING, piece];
             blackPieceScore += BitUtil.CountBits(board.bitPieces[piece + 6]) * -materialScore[(int)Phase.OPENING, piece + 6];
         }
-        Console.WriteLine($"White score: {whitePieceScore}\nBlack score: {blackPieceScore}\nOverall score: {whitePieceScore + blackPieceScore}");
         return whitePieceScore + blackPieceScore;
     }
 }
