@@ -1,4 +1,6 @@
-﻿namespace UCE.src;
+﻿using System.Threading;
+
+namespace UCE.src;
 
 
 class UCI
@@ -128,6 +130,17 @@ class UCI
     {
         if (cmdArgs == "")
             return;
+        // Reset time control
+        Quit = false;
+        movesToGo = 40;
+        moveTime = -1;
+        timeLeft = -1;
+        increment = 0;
+        startTime = 0;
+        stopTime = 0;
+        isTimeControlled = false;
+        Stop = false;
+
         int currentIndex, depth = -1;
         // UCI extension -> took from stockfish
         if ((currentIndex = cmdArgs.IndexOf("perft")) != -1)
