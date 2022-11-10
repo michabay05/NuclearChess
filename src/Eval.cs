@@ -39,7 +39,7 @@ class Eval
                 -27,  -2,  -5,  12,  17,   6, 10, -25,
                 -26,  -4,  -4, -10,   3,   3, 33, -12,
                 -35,  -1, -20, -23, -15,  24, 38, -22,
-                0,   0,   0,   0,   0,   0,  0,   0 
+                0,   0,   0,   0,   0,   0,  0,   0
             },
             // knight
             {
@@ -248,6 +248,7 @@ class Eval
     private static ulong[] isolatedMasks = new ulong[64]; // square
     private static ulong[,] passedMasks = new ulong[2, 64]; // color, squares
 
+    /*
     private static readonly int DOUBLED_PAWN_PENALTY = -10;
     private static readonly int ISOLATED_PAWN_PENALTY = -10;
     private static readonly int[] PASSED_PAWN_BONUS = { 0, 10, 30, 50, 75, 100, 150, 200 };
@@ -256,7 +257,13 @@ class Eval
     private static readonly int OPEN_FILE_SCORE = 15;
 
     private static readonly int KING_SHIELD_BONUS = 5;
+    */
 
+    /*  These are opening and endgame bounds
+        If the total material score > OPENING_PHASE_SCORE -> use pure opening material score
+        If the total material score < ENDGAME_PHASE_SCORE -> use pure endgame material score
+        If ENDGAME_PHASE_SCORE < total material score < OPENING_PHASE_SCORE -> interpolate the values based on how close they are to the bounds
+    */
     private static readonly int OPENING_PHASE_SCORE = 6192;
     private static readonly int ENDGAME_PHASE_SCORE = 518;
     public static void InitMasks()
@@ -290,10 +297,19 @@ class Eval
 
     public static int Evaluate(ref Board board)
     {
-        int score = 0;
+        // Determine the phase of the game
         int phaseScore = GetPhaseScore(ref board);
+        int phase;
+        if (phaseScore >= OPENING_PHASE_SCORE)
+            phase = (int)Phase.OPENING;
+        else if (phaseScore <= ENDGAME_PHASE_SCORE)
+            phase = (int)Phase.ENDGAME;
+        else
+            phase = (int)Phase.MIDDLEGAME;
+
         ulong bitboard;
         int sq;
+        int score = 0;
         for (int piece = 0; piece < 12; piece++)
         {
             // Create a copy of piece bitboards
@@ -302,6 +318,167 @@ class Eval
             while (bitboard != 0)
             {
                 sq = BitUtil.GetLs1bIndex(bitboard);
+                // Material score based on game phase
+                if (phase == (int)Phase.MIDDLEGAME)
+                {
+                    /*          
+                        Now in order to calculate interpolated score
+                        for a given game phase we use this formula
+                        (same for material and positional scores):
+                        
+                        (
+                          score_opening * game_phase_score + 
+                          score_endgame * (opening_phase_score - game_phase_score)
+                        ) / opening_phase_score
+                    
+                        E.g. the score for pawn on d4 at phase say 5000 would be
+                        interpolated_score = (12 * 5000 + (-7) * (6192 - 5000)) / 6192 = 8,342377261
+                    */
+                    score += (
+                        materialScore[(int)Phase.OPENING, piece] * phaseScore +
+                        materialScore[(int)Phase.ENDGAME, piece] * (OPENING_PHASE_SCORE - phaseScore)
+                    ) / OPENING_PHASE_SCORE;
+                }
+                else
+                    score += materialScore[phase, piece];
+
+                // Positional scores
+                switch (piece)
+                {
+                    case 0: // PAWN
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score += (
+                                positionalScore[(int)Phase.OPENING, 0, sq] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 0, sq] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score += positionalScore[phase, 0, sq];
+                        break;
+                    case 1: // KNIGHT
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score += (
+                                positionalScore[(int)Phase.OPENING, 1, sq] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 1, sq] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score += positionalScore[phase, 1, sq];
+                        break;
+                    case 2: // BISHOP
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score += (
+                                positionalScore[(int)Phase.OPENING, 2, sq] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 2, sq] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score += positionalScore[phase, 2, sq];
+                        break;
+                    case 3: // ROOK
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score += (
+                                positionalScore[(int)Phase.OPENING, 3, sq] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 3, sq] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score += positionalScore[phase, 3, sq];
+                        break;
+                    case 4: // QUEEN
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score += (
+                                positionalScore[(int)Phase.OPENING, 4, sq] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 4, sq] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score += positionalScore[phase, 4, sq];
+                        break;
+                    case 5: // KING
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score += (
+                                positionalScore[(int)Phase.OPENING, 5, sq] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 5, sq] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score += positionalScore[phase, 5, sq];
+                        break;
+                    // BLACK
+                    case 6: // PAWN
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score -= (
+                                positionalScore[(int)Phase.OPENING, 0, BoardUtil.flip[sq]] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 0, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score -= positionalScore[phase, 0, BoardUtil.flip[sq]];
+                        break;
+                    case 7: // KNIGHT
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score -= (
+                                positionalScore[(int)Phase.OPENING, 1, BoardUtil.flip[sq]] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 1, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score -= positionalScore[phase, 1, BoardUtil.flip[sq]];
+                        break;
+                    case 8: // BISHOP
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score -= (
+                                positionalScore[(int)Phase.OPENING, 2, BoardUtil.flip[sq]] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 2, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score -= positionalScore[phase, 2, BoardUtil.flip[sq]];
+                        break;
+                    case 9: // ROOK
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score -= (
+                                positionalScore[(int)Phase.OPENING, 3, BoardUtil.flip[sq]] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 3, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score -= positionalScore[phase, 3, BoardUtil.flip[sq]];
+                        break;
+                    case 10: // QUEEN
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score -= (
+                                positionalScore[(int)Phase.OPENING, 4, BoardUtil.flip[sq]] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 4, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score -= positionalScore[phase, 4, BoardUtil.flip[sq]];
+                        break;
+                    case 11: // KING
+                        if (phase == (int)Phase.MIDDLEGAME)
+                        {
+                            score -= (
+                                positionalScore[(int)Phase.OPENING, 5, BoardUtil.flip[sq]] * phaseScore +
+                                positionalScore[(int)Phase.ENDGAME, 5, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
+                                ) / OPENING_PHASE_SCORE;
+                        }
+                        else
+                            score -= positionalScore[phase, 5, BoardUtil.flip[sq]];
+                        break;
+                }
                 BitUtil.PopBit(ref bitboard, sq);
             }
         }
@@ -312,8 +489,9 @@ class Eval
     {
         /*
             The game phase score of the game is derived from the pieces
-            (not counting pawns and kings) that are still on the board.
-            The full material starting position game phase score is:
+            of both sides (not counting pawns and kings) that are still
+            on the board. The full material starting position game phase
+            score is:
 
             4 * knight material score in the opening +
             4 * bishop material score in the opening +
