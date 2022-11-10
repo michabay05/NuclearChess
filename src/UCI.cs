@@ -1,7 +1,4 @@
-﻿using System.Xml;
-using System.Xml.Schema;
-
-namespace UCE.src;
+﻿namespace UCE.src;
 
 
 class UCI
