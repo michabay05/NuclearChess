@@ -248,17 +248,19 @@ class Eval
     private static ulong[] isolatedMasks = new ulong[64]; // square
     private static ulong[,] passedMasks = new ulong[2, 64]; // color, squares
 
-    /*
-    private static readonly int DOUBLED_PAWN_PENALTY = -10;
-    private static readonly int ISOLATED_PAWN_PENALTY = -10;
+    private static readonly int[] DOUBLED_PAWN_PENALTY = { -5, -10 };
+    private static readonly int[] ISOLATED_PAWN_PENALTY = { -5, -10 };
     private static readonly int[] PASSED_PAWN_BONUS = { 0, 10, 30, 50, 75, 100, 150, 200 };
 
     private static readonly int SEMI_OPEN_FILE_SCORE = 10;
     private static readonly int OPEN_FILE_SCORE = 15;
 
     private static readonly int KING_SHIELD_BONUS = 5;
-    */
 
+    private static readonly int BISHOP_UNIT = 4;
+    private static readonly int QUEEN_UNIT = 9;
+    private static readonly int[] BISHOP_MOBILITY = { 5, 5 };
+    private static readonly int[] QUEEN_MOBILITY = { 1, 2 };
     /*  These are opening and endgame bounds
         If the total material score > OPENING_PHASE_SCORE -> use pure opening material score
         If the total material score < ENDGAME_PHASE_SCORE -> use pure endgame material score
@@ -299,17 +301,21 @@ class Eval
     {
         // Determine the phase of the game
         int phaseScore = GetPhaseScore(ref board);
-        int phase;
+        Phase phase;
         if (phaseScore >= OPENING_PHASE_SCORE)
-            phase = (int)Phase.OPENING;
+            phase = Phase.OPENING;
         else if (phaseScore <= ENDGAME_PHASE_SCORE)
-            phase = (int)Phase.ENDGAME;
+            phase = Phase.ENDGAME;
         else
-            phase = (int)Phase.MIDDLEGAME;
+            phase = Phase.MIDDLEGAME;
 
         ulong bitboard;
         int sq;
         int score = 0;
+        int openingScore = 0, endgameScore = 0;
+
+        // Penalties
+        int doubledPawns = 0;
         for (int piece = 0; piece < 12; piece++)
         {
             // Create a copy of piece bitboards
@@ -319,169 +325,190 @@ class Eval
             {
                 sq = BitUtil.GetLs1bIndex(bitboard);
                 // Material score based on game phase
-                if (phase == (int)Phase.MIDDLEGAME)
-                {
-                    /*          
-                        Now in order to calculate interpolated score
-                        for a given game phase we use this formula
-                        (same for material and positional scores):
-                        
-                        (
-                          score_opening * game_phase_score + 
-                          score_endgame * (opening_phase_score - game_phase_score)
-                        ) / opening_phase_score
-                    
-                        E.g. the score for pawn on d4 at phase say 5000 would be
-                        interpolated_score = (12 * 5000 + (-7) * (6192 - 5000)) / 6192 = 8,342377261
-                    */
-                    score += (
-                        materialScore[(int)Phase.OPENING, piece] * phaseScore +
-                        materialScore[(int)Phase.ENDGAME, piece] * (OPENING_PHASE_SCORE - phaseScore)
-                    ) / OPENING_PHASE_SCORE;
-                }
-                else
-                    score += materialScore[phase, piece];
+                openingScore += materialScore[(int)Phase.OPENING, piece];
+                endgameScore += materialScore[(int)Phase.ENDGAME, piece];
 
                 // Positional scores
                 switch (piece)
                 {
+                    // WHITE PAWNS
                     case 0: // PAWN
-                        if (phase == (int)Phase.MIDDLEGAME)
+                        openingScore += positionalScore[(int)Phase.OPENING, 0, sq];
+                        endgameScore += positionalScore[(int)Phase.ENDGAME, 0, sq];
+
+                        // Doubled pawn penalty
+                        doubledPawns = BitUtil.CountBits(board.bitPieces[0] & BoardUtil.fileMasks[sq]);
+                        if (doubledPawns > 1)
                         {
-                            score += (
-                                positionalScore[(int)Phase.OPENING, 0, sq] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 0, sq] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
+                            openingScore += (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.OPENING];
+                            endgameScore += (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.ENDGAME];
                         }
-                        else
-                            score += positionalScore[phase, 0, sq];
+                        // Isolated pawns penalty
+                        if ((board.bitPieces[0] & isolatedMasks[sq]) == 0)
+                        {
+                            openingScore += ISOLATED_PAWN_PENALTY[(int)Phase.OPENING];
+                            endgameScore += ISOLATED_PAWN_PENALTY[(int)Phase.ENDGAME];
+                        }
+                        // Passed pawns bonus
+                        if ((passedMasks[0, sq] & board.bitPieces[6]) == 0)
+                        {
+                            openingScore += PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
+                            endgameScore += PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
+                        }
                         break;
                     case 1: // KNIGHT
-                        if (phase == (int)Phase.MIDDLEGAME)
-                        {
-                            score += (
-                                positionalScore[(int)Phase.OPENING, 1, sq] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 1, sq] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
-                        }
-                        else
-                            score += positionalScore[phase, 1, sq];
+                        openingScore += positionalScore[(int)Phase.OPENING, 1, sq];
+                        endgameScore += positionalScore[(int)Phase.ENDGAME, 1, sq];
                         break;
                     case 2: // BISHOP
-                        if (phase == (int)Phase.MIDDLEGAME)
-                        {
-                            score += (
-                                positionalScore[(int)Phase.OPENING, 2, sq] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 2, sq] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
-                        }
-                        else
-                            score += positionalScore[phase, 2, sq];
+                        openingScore += positionalScore[(int)Phase.OPENING, 2, sq];
+                        endgameScore += positionalScore[(int)Phase.ENDGAME, 2, sq];
+
+                        // Mobility
+                        openingScore += (BitUtil.CountBits(Magics.GetBishopAttack(sq, board.bitAll)) - BISHOP_UNIT) * BISHOP_MOBILITY[(int)Phase.OPENING];
+                        endgameScore += (BitUtil.CountBits(Magics.GetBishopAttack(sq, board.bitAll)) - BISHOP_UNIT) * BISHOP_MOBILITY[(int)Phase.ENDGAME];
                         break;
                     case 3: // ROOK
-                        if (phase == (int)Phase.MIDDLEGAME)
+                        openingScore += positionalScore[(int)Phase.OPENING, 3, sq];
+                        endgameScore += positionalScore[(int)Phase.ENDGAME, 3, sq];
+
+                        // Open file or semi open file bonus
+                        if ((board.bitPieces[0] & BoardUtil.fileMasks[sq]) == 0)
                         {
-                            score += (
-                                positionalScore[(int)Phase.OPENING, 3, sq] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 3, sq] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
+                            openingScore += SEMI_OPEN_FILE_SCORE;
+                            endgameScore += SEMI_OPEN_FILE_SCORE;
                         }
-                        else
-                            score += positionalScore[phase, 3, sq];
+                        if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
+                        {
+                            openingScore += OPEN_FILE_SCORE;
+                            endgameScore += OPEN_FILE_SCORE;
+                        }
                         break;
                     case 4: // QUEEN
-                        if (phase == (int)Phase.MIDDLEGAME)
-                        {
-                            score += (
-                                positionalScore[(int)Phase.OPENING, 4, sq] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 4, sq] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
-                        }
-                        else
-                            score += positionalScore[phase, 4, sq];
+                        openingScore += positionalScore[(int)Phase.OPENING, 4, sq];
+                        endgameScore += positionalScore[(int)Phase.ENDGAME, 4, sq];
+
+                        // Mobility
+                        openingScore += (BitUtil.CountBits(Magics.GetQueenAttack(sq, board.bitAll)) - QUEEN_UNIT) * QUEEN_MOBILITY[(int)Phase.OPENING];
+                        endgameScore += (BitUtil.CountBits(Magics.GetQueenAttack(sq, board.bitAll)) - QUEEN_UNIT) * QUEEN_MOBILITY[(int)Phase.ENDGAME];
                         break;
                     case 5: // KING
-                        if (phase == (int)Phase.MIDDLEGAME)
+                        openingScore += positionalScore[(int)Phase.OPENING, 5, sq];
+                        endgameScore += positionalScore[(int)Phase.ENDGAME, 5, sq];
+
+                        // Open file or semi open file penalty
+                        if ((board.bitPieces[0] & BoardUtil.fileMasks[sq]) == 0)
                         {
-                            score += (
-                                positionalScore[(int)Phase.OPENING, 5, sq] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 5, sq] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
+                            openingScore -= SEMI_OPEN_FILE_SCORE;
+                            endgameScore -= SEMI_OPEN_FILE_SCORE;
                         }
-                        else
-                            score += positionalScore[phase, 5, sq];
+                        if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
+                        {
+                            openingScore -= OPEN_FILE_SCORE;
+                            endgameScore -= OPEN_FILE_SCORE;
+                        }
+
+                        // Mobility
+                        openingScore += BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
+                        endgameScore += BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
                         break;
-                    // BLACK
+                    // BLACK PIECES
                     case 6: // PAWN
-                        if (phase == (int)Phase.MIDDLEGAME)
+                        openingScore -= positionalScore[(int)Phase.OPENING, 0, BoardUtil.flip[sq]];
+                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 0, BoardUtil.flip[sq]];
+
+                        // Doubled pawn penalty
+                        doubledPawns = BitUtil.CountBits(board.bitPieces[0] & BoardUtil.fileMasks[sq]);
+                        if (doubledPawns > 1)
                         {
-                            score -= (
-                                positionalScore[(int)Phase.OPENING, 0, BoardUtil.flip[sq]] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 0, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
+                            openingScore -= (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.OPENING];
+                            endgameScore -= (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.ENDGAME];
                         }
-                        else
-                            score -= positionalScore[phase, 0, BoardUtil.flip[sq]];
+                        // Isolated pawns penalty
+                        if ((board.bitPieces[0] & isolatedMasks[sq]) == 0)
+                        {
+                            openingScore -= ISOLATED_PAWN_PENALTY[(int)Phase.OPENING];
+                            endgameScore -= ISOLATED_PAWN_PENALTY[(int)Phase.ENDGAME];
+                        }
+                        // Passed pawns bonus
+                        if ((passedMasks[1, sq] & board.bitPieces[0]) == 0)
+                        {
+                            openingScore -= PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
+                            endgameScore -= PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
+                        }
                         break;
                     case 7: // KNIGHT
-                        if (phase == (int)Phase.MIDDLEGAME)
-                        {
-                            score -= (
-                                positionalScore[(int)Phase.OPENING, 1, BoardUtil.flip[sq]] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 1, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
-                        }
-                        else
-                            score -= positionalScore[phase, 1, BoardUtil.flip[sq]];
+                        openingScore -= positionalScore[(int)Phase.OPENING, 1, BoardUtil.flip[sq]];
+                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 1, BoardUtil.flip[sq]];
                         break;
                     case 8: // BISHOP
-                        if (phase == (int)Phase.MIDDLEGAME)
-                        {
-                            score -= (
-                                positionalScore[(int)Phase.OPENING, 2, BoardUtil.flip[sq]] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 2, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
-                        }
-                        else
-                            score -= positionalScore[phase, 2, BoardUtil.flip[sq]];
+                        openingScore -= positionalScore[(int)Phase.OPENING, 2, BoardUtil.flip[sq]];
+                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 2, BoardUtil.flip[sq]];
+
+                        // Mobility
+                        openingScore -= (BitUtil.CountBits(Magics.GetBishopAttack(sq, board.bitAll)) - BISHOP_UNIT) * BISHOP_MOBILITY[(int)Phase.OPENING];
+                        endgameScore -= (BitUtil.CountBits(Magics.GetBishopAttack(sq, board.bitAll)) - BISHOP_UNIT) * BISHOP_MOBILITY[(int)Phase.ENDGAME];
                         break;
                     case 9: // ROOK
-                        if (phase == (int)Phase.MIDDLEGAME)
+                        openingScore -= positionalScore[(int)Phase.OPENING, 3, BoardUtil.flip[sq]];
+                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 3, BoardUtil.flip[sq]];
+
+                        // Open file or semi open file bonus
+                        if ((board.bitPieces[0] & BoardUtil.fileMasks[sq]) == 0)
                         {
-                            score -= (
-                                positionalScore[(int)Phase.OPENING, 3, BoardUtil.flip[sq]] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 3, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
+                            openingScore -= SEMI_OPEN_FILE_SCORE;
+                            endgameScore -= SEMI_OPEN_FILE_SCORE;
                         }
-                        else
-                            score -= positionalScore[phase, 3, BoardUtil.flip[sq]];
+                        if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
+                        {
+                            openingScore -= OPEN_FILE_SCORE;
+                            endgameScore -= OPEN_FILE_SCORE;
+                        }
                         break;
                     case 10: // QUEEN
-                        if (phase == (int)Phase.MIDDLEGAME)
-                        {
-                            score -= (
-                                positionalScore[(int)Phase.OPENING, 4, BoardUtil.flip[sq]] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 4, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
-                        }
-                        else
-                            score -= positionalScore[phase, 4, BoardUtil.flip[sq]];
+                        openingScore -= positionalScore[(int)Phase.OPENING, 4, BoardUtil.flip[sq]];
+                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 4, BoardUtil.flip[sq]];
+
+                        // Mobility
+                        openingScore -= (BitUtil.CountBits(Magics.GetQueenAttack(sq, board.bitAll)) - QUEEN_UNIT) * QUEEN_MOBILITY[(int)Phase.OPENING];
+                        endgameScore -= (BitUtil.CountBits(Magics.GetQueenAttack(sq, board.bitAll)) - QUEEN_UNIT) * QUEEN_MOBILITY[(int)Phase.ENDGAME];
                         break;
                     case 11: // KING
-                        if (phase == (int)Phase.MIDDLEGAME)
+                        openingScore -= positionalScore[(int)Phase.OPENING, 5, BoardUtil.flip[sq]];
+                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 5, BoardUtil.flip[sq]];
+
+                        // Open file or semi open file penalty
+                        if ((board.bitPieces[0] & BoardUtil.fileMasks[sq]) == 0)
                         {
-                            score -= (
-                                positionalScore[(int)Phase.OPENING, 5, BoardUtil.flip[sq]] * phaseScore +
-                                positionalScore[(int)Phase.ENDGAME, 5, BoardUtil.flip[sq]] * (OPENING_PHASE_SCORE - phaseScore)
-                                ) / OPENING_PHASE_SCORE;
+                            openingScore += SEMI_OPEN_FILE_SCORE;
+                            endgameScore += SEMI_OPEN_FILE_SCORE;
                         }
-                        else
-                            score -= positionalScore[phase, 5, BoardUtil.flip[sq]];
+                        if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
+                        {
+                            openingScore += OPEN_FILE_SCORE;
+                            endgameScore += OPEN_FILE_SCORE;
+                        }
+
+                        // Mobility
+                        openingScore -= BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
+                        endgameScore -= BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
                         break;
                 }
                 BitUtil.PopBit(ref bitboard, sq);
             }
         }
+
+        // Score interpolation
+        if (phase == Phase.MIDDLEGAME)
+            score = (
+                openingScore * phaseScore +
+                endgameScore * (OPENING_PHASE_SCORE - phaseScore)
+                ) / OPENING_PHASE_SCORE;
+
+        else if (phase == Phase.OPENING) score = openingScore;
+        else if (phase == Phase.ENDGAME) score = endgameScore;
+
+        // Return score based on the side to move
         return (board.side == 0) ? score : -score;
     }
 
@@ -507,111 +534,3 @@ class Eval
         return whitePieceScore + blackPieceScore;
     }
 }
-
-/*score += materialScore[piece];
-switch (piece)
-{
-case 0:
-    // Positional score
-    score += pawnScores[sq];
-    // Doubled pawn evaluation - penalty
-    doubledPawns = BitUtil.CountBits(bitboard);
-    if (doubledPawns > 1)
-        // Punish for each set of doubled pawns
-        score += doubledPawns * DOUBLED_PAWN_PENALTY;
-
-    // Isolated pawn evaluation - penalty
-    if ((board.bitPieces[0] & isolatedMasks[sq]) == 0)
-        score += ISOLATED_PAWN_PENALTY;
-
-    // Passed pawn evaluation - bonus
-    if ((board.bitPieces[6] & passedMasks[0, sq]) == 0)
-        score += PASSED_PAWN_BONUS[BoardUtil.ranks[sq]];
-    break;
-case 1: score += knightScores[sq]; break;
-case 2:
-    // Positional scores
-    score += bishopScores[sq];
-
-    // Mobility scores
-    score += BitUtil.CountBits(Magics.GetBishopAttack(sq, board.bitAll));
-    break;
-case 3:
-    // Positional score
-    score += rookScores[sq];
-
-    if ((board.bitPieces[0] & BoardUtil.fileMasks[sq]) == 0)
-        // File is semi open, add semi open file bonus
-        score += SEMI_OPEN_FILE_SCORE;
-
-    if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
-        // File is semi open, add semi open file bonus
-        score += OPEN_FILE_SCORE;
-    break;
-case 4:
-    // Mobility scores
-    score += BitUtil.CountBits(Magics.GetQueenAttack(sq, board.bitAll));
-    break;
-case 5:
-    // Positional score
-    score += kingScores[sq];
-    if ((board.bitPieces[0] & BoardUtil.fileMasks[sq]) == 0)
-        // File is semi open, add semi open file penalty
-        score -= SEMI_OPEN_FILE_SCORE;
-    if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
-        // File is open, add semi open file penalty
-        score -= OPEN_FILE_SCORE;
-    // King safety score
-    score += BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
-    break;
-
-case 6:
-    // Positional score
-    score -= pawnScores[BoardUtil.flip[sq]];
-    // Doubled pawn evaluation - penalty
-    doubledPawns = BitUtil.CountBits(bitboard);
-    if (doubledPawns > 1)
-        // Punish for each set of doubled pawns
-        score -= doubledPawns * DOUBLED_PAWN_PENALTY;
-    // Isolated pawn evaluation - penalty
-    if ((board.bitPieces[6] & isolatedMasks[sq]) == 0)
-        score -= ISOLATED_PAWN_PENALTY;
-    // Passed pawn evaluation - bonus
-    if ((board.bitPieces[0] & passedMasks[1, sq]) == 0)
-        score -= PASSED_PAWN_BONUS[BoardUtil.ranks[BoardUtil.flip[sq]]];
-    break;
-case 7: score -= knightScores[BoardUtil.flip[sq]]; break;
-case 8:
-    // Positional scores
-    score -= bishopScores[BoardUtil.flip[sq]];
-    // Mobility scores
-    score -= BitUtil.CountBits(Magics.GetBishopAttack(sq, board.bitAll));
-    break;
-case 9:
-    // Positional score
-    score -= rookScores[BoardUtil.flip[sq]];
-    if ((board.bitPieces[6] & BoardUtil.fileMasks[sq]) == 0)
-        // File is semi open, add semi open file bonus
-        score -= SEMI_OPEN_FILE_SCORE;
-    if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
-        // File is semi open, add semi open file bonus
-        score -= OPEN_FILE_SCORE;
-    break;
-case 10:
-    // Mobility scores
-    score -= BitUtil.CountBits(Magics.GetQueenAttack(sq, board.bitAll));
-    break;
-case 11:
-    // Positional score
-    score -= kingScores[BoardUtil.flip[sq]];
-    if ((board.bitPieces[6] & BoardUtil.fileMasks[sq]) == 0)
-        // File is semi open, add semi open file penalty
-        score += SEMI_OPEN_FILE_SCORE;
-    if (((board.bitPieces[0] | board.bitPieces[6]) & BoardUtil.fileMasks[sq]) == 0)
-        // File is open, add semi open file penalty
-        score += OPEN_FILE_SCORE;
-    // King safety score
-    score -= BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[1]) * KING_SHIELD_BONUS;
-    break;
-}*/
-

@@ -65,17 +65,20 @@ class Search
             alpha = score - 50;
             beta = score + 50;
 
-            // Print information about current depth
-            if (score > -MATE_VALUE && score < -MATE_SCORE)
-                Console.Write($"info score mate {-(score + MATE_VALUE) / 2} depth {currentDepth} nodes {nodes} pv ");
-            else if (score > MATE_SCORE && score < MATE_VALUE)
-                Console.Write($"info score mate {(MATE_VALUE - score) / 2} depth {currentDepth} nodes {nodes} pv ");
-            else
-                Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} pv ");
+            if (pvLength[0] != 0)
+            {
+                // Print information about current depth
+                if (score > -MATE_VALUE && score < -MATE_SCORE)
+                    Console.Write($"info score mate {-(score + MATE_VALUE) / 2} depth {currentDepth} nodes {nodes} pv ");
+                else if (score > MATE_SCORE && score < MATE_VALUE)
+                    Console.Write($"info score mate {(MATE_VALUE - score) / 2} depth {currentDepth} nodes {nodes} pv ");
+                else
+                    Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} pv ");
 
-            for (int i = 0; i < pvLength[0]; i++)
-                Console.Write(Move.ToString(pvTable[0, i]) + " ");
-            Console.WriteLine();
+                for (int i = 0; i < pvLength[0]; i++)
+                    Console.Write(Move.ToString(pvTable[0, i]) + " ");
+                Console.WriteLine();
+            }
         }
         Console.WriteLine($"bestmove {Move.ToString(pvTable[0, 0])}");
     }
@@ -83,6 +86,7 @@ class Search
     // negamax alpha beta search
     private static int Negamax(ref Board board, int alpha, int beta, int depth)
     {
+        pvLength[ply] = ply;
         // Stores current move's score
         int score;
         int hashFlag = TT.F_HASH_ALPHA;
@@ -105,7 +109,6 @@ class Search
             // "listen" to the GUI/user input
             UCI.Communicate();
 
-        pvLength[ply] = ply;
         // Escape condition
         if (depth == 0)
             return Quiescence(ref board, alpha, beta);

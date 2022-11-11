@@ -184,7 +184,10 @@ class UCI
             timeLeft /= movesToGo;
             // Just to be safe, reduce time per move by 50 ms
             if (timeLeft > 1500) timeLeft -= 50;
-            stopTime = startTime + timeLeft + increment;
+            if (timeLeft < 1500 && increment != 0 && depth == 64)
+                stopTime = startTime + increment - 50;
+            else
+                stopTime = startTime + timeLeft + increment;
         }
 
         // If depth not set, set default value
