@@ -5,7 +5,7 @@ namespace Nuclear.src;
 class TTUtil
 {
     public static readonly int ONE_MB = 1_000_000 / Marshal.SizeOf(typeof(TT));
-    public static readonly int HASH_SIZE = 100 * ONE_MB;
+    public static readonly int HASH_SIZE = 50 * ONE_MB;
     //public static readonly int PAWN_HASH_SIZE = 0;
     public static readonly int NO_HASH_ENTRY = 100_000;
 

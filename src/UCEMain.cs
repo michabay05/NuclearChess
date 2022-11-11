@@ -2,7 +2,7 @@
 
 class UCEMain
 {
-    private static int debug = 1;
+    private static int debug = 0;
     static void Main(string[] args)
     {
         BoardUtil.InitRankFileMasks();

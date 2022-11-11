@@ -47,7 +47,7 @@ class UCI
         else if (command.IndexOf("display") != -1)
             currentBoard.Display();
         else if (command.IndexOf("getfen") != -1)
-            Console.WriteLine("FEN: " + currentFen);
+            Console.WriteLine("FEN: " + FEN.Generate(ref currentBoard));
         else if (command.IndexOf("help") != -1)
             Help();
         else if (command.IndexOf("stop") != -1)
