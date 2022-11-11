@@ -1,4 +1,4 @@
-﻿namespace UCE.src;
+﻿namespace Nuclear.src;
 
 class Precalculate
 {

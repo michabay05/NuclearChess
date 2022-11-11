@@ -1,6 +1,6 @@
 ﻿using System.Threading;
 
-namespace UCE.src;
+namespace Nuclear.src;
 
 
 class UCI

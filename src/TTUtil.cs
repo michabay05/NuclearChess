@@ -1,6 +1,6 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace UCE.src;
+namespace Nuclear.src;
 
 class TTUtil
 {

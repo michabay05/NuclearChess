@@ -1,4 +1,4 @@
-﻿namespace UCE.src;
+﻿namespace Nuclear.src;
 
 enum Phase { OPENING, ENDGAME, MIDDLEGAME }
 
