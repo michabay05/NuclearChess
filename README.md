@@ -1,4 +1,4 @@
-# UCE - Unique Chess Engine
+# NuclearChess
 This is a bitboard-based chess engine written in C#. This engine was created by following the "Bitboard Chess Engine in C" series by the Chess Programming YouTube Channel.
 
 ## Features Implemented
