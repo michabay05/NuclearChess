@@ -1,6 +1,4 @@
-﻿using System.Drawing;
-
-namespace UCE.src;
+﻿namespace UCE.src;
 
 class UCEMain
 {

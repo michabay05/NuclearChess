@@ -1,12 +1,15 @@
-﻿namespace UCE.src;
+﻿using System.Runtime.InteropServices;
+
+namespace UCE.src;
 
 class TTUtil
 {
-    // Default hash size: 4 megabytes
-    public static readonly int HASH_SIZE = 800_000;
+    public static readonly int ONE_MB = 1_000_000 / Marshal.SizeOf(typeof(TT));
+    public static readonly int HASH_SIZE = 100 * ONE_MB;
+    //public static readonly int PAWN_HASH_SIZE = 0;
     public static readonly int NO_HASH_ENTRY = 100_000;
 
-    private static TT[] hashTable = new TT[HASH_SIZE];
+    public static TT[] hashTable = new TT[HASH_SIZE];
 
     public static void ClearTable()
     {
