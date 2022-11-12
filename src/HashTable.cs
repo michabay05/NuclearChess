@@ -2,18 +2,22 @@
 
 namespace Nuclear.src;
 
-class TTUtil
+class HashTable
 {
     public static readonly int ONE_MB = 1_000_000 / Marshal.SizeOf(typeof(TT));
-    public static readonly int HASH_SIZE = 100 * ONE_MB;
-    //public static readonly int PAWN_HASH_SIZE = 0;
     public static readonly int NO_HASH_ENTRY = 100_000;
+    public static int hashSize = 100 * ONE_MB;
 
-    public static TT[] hashTable = new TT[HASH_SIZE];
+    public static TT[] hashTable = new TT[hashSize];
 
+    public static void Init(int size)
+    {
+        hashSize = size;
+        hashTable = new TT[hashSize];
+    }
     public static void ClearTable()
     {
-        for (int i = 0; i < HASH_SIZE; i++)
+        for (int i = 0; i < hashSize; i++)
             hashTable[i] = new TT();
     }
 
@@ -21,7 +25,7 @@ class TTUtil
     {
         // TT pointer that stores particular hash entry for current board
         // and the scoring data, if available
-        TT ttable = hashTable[board.hashKey % (ulong)HASH_SIZE];
+        TT ttable = hashTable[board.hashKey % (ulong)hashSize];
 
         // Check if hashTable ID and board ID is the same
         if (ttable.hashKey == board.hashKey)
@@ -53,7 +57,7 @@ class TTUtil
     {
         // Hash table index that stores particular hash entry for current board
         // and the scoring data, if available
-        ulong index = board.hashKey % (ulong)HASH_SIZE;
+        ulong index = board.hashKey % (ulong)hashSize;
 
         if (score < -Search.MATE_SCORE) score -= Search.ply;
         if (score > Search.MATE_SCORE) score += Search.ply;

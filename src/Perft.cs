@@ -3,10 +3,6 @@
 class Perft
 {
     public static long nodes;
-    public static long MsTime
-    {
-        get => DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
-    }
 
     public static void Driver(ref Board board, int depth)
     {
@@ -64,7 +60,7 @@ class Perft
         MoveGen.Generate(ref moveList);
 
         // Init start time
-        long start = MsTime;
+        long start = UCI.MsTime;
 
         Board copy;
         // Loop over generated moves
@@ -91,6 +87,6 @@ class Perft
         // Print results
         Console.WriteLine($"\n     Depth: {depth}");
         Console.WriteLine($"     Nodes: {nodes}");
-        Console.WriteLine($"      Time: {MsTime - start} ms");
+        Console.WriteLine($"      Time: {UCI.MsTime - start} ms");
     }
 }

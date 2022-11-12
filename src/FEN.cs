@@ -60,6 +60,8 @@ class FEN
                 {
                     int piece = Piece.pieceToInt[currChar];
                     BitUtil.SetBit(ref board.bitPieces[piece], sq);
+                    if ((piece % 6) == 0)
+                        board.pawnHashKey ^= Zobrist.pieceKeys[piece, sq];
                 }
                 else if (char.IsDigit(currChar))
                 {

@@ -1,6 +1,6 @@
 ﻿namespace Nuclear.src;
 
-class Precalculate
+class Attack
 {
     public static ulong[,] pawnAttacks;
     public static ulong[] knightAttacks;
@@ -33,7 +33,7 @@ class Precalculate
         12, 11, 11, 11, 11, 11, 11, 12
     };
 
-    static Precalculate()
+    static Attack()
     {
         pawnAttacks = new ulong[2, 64];
         knightAttacks = new ulong[64];
@@ -87,6 +87,27 @@ class Precalculate
                     rookAttacks[sq, magicInd] = GenRookAttacks(sq, occupancy);
                 }
             }
+        }
+    }
+
+    public static ulong GetAttack(int piece, int sq, ulong blockerBoard)
+    {
+        switch (piece % 6)
+        {
+            case 0:
+                return pawnAttacks[0, sq];
+            case 1:
+                return knightAttacks[sq];
+            case 2:
+                return Magics.GetBishopAttack(sq, blockerBoard);
+            case 3:
+                return Magics.GetRookAttack(sq, blockerBoard);
+            case 4:
+                return Magics.GetQueenAttack(sq, blockerBoard);
+            case 6:
+                return kingAttacks[sq];
+            default:
+                return 0UL;
         }
     }
 

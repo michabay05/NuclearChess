@@ -69,11 +69,11 @@ class Search
             {
                 // Print information about current depth
                 if (score > -MATE_VALUE && score < -MATE_SCORE)
-                    Console.Write($"info score mate {-(score + MATE_VALUE) / 2} depth {currentDepth} nodes {nodes} pv ");
+                    Console.Write($"info score mate {-(score + MATE_VALUE) / 2 - 1} depth {currentDepth} nodes {nodes} time {UCI.MsTime - UCI.startTime} pv ");
                 else if (score > MATE_SCORE && score < MATE_VALUE)
-                    Console.Write($"info score mate {(MATE_VALUE - score) / 2} depth {currentDepth} nodes {nodes} pv ");
+                    Console.Write($"info score mate {(MATE_VALUE - score) / 2 + 1} depth {currentDepth} nodes {nodes} time {UCI.MsTime - UCI.startTime} pv ");
                 else
-                    Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} pv ");
+                    Console.Write($"info score cp {score} depth {currentDepth} nodes {nodes} time {UCI.MsTime - UCI.startTime} pv ");
 
                 for (int i = 0; i < pvLength[0]; i++)
                     Console.Write(Move.ToString(pvTable[0, i]) + " ");
@@ -101,7 +101,7 @@ class Search
 
         // If score of current position exists, return score instead of searching
         // Reads hash entry if not root ply, score for current position exists and isn't pv node
-        if (ply > 0 && (score = TTUtil.ReadEntry(ref board, alpha, beta, depth)) != TTUtil.NO_HASH_ENTRY && !isPVNode)
+        if (ply > 0 && (score = HashTable.ReadEntry(ref board, alpha, beta, depth)) != HashTable.NO_HASH_ENTRY && !isPVNode)
             return score;
 
         // every 2047 nodes
@@ -115,13 +115,14 @@ class Search
 
         // Exit if ply > max ply; ply should be <= 63
         if (ply > MAX_PLY - 1)
-            return Eval.Evaluate(ref board);
+            return Eval.Evaluate(board);
 
         // Increment node count
         nodes++;
 
+        // Check extension
+        // Increase search depth if the king has been exposed into a check
         bool isInCheck = MoveGen.IsSquareAttacked(board.side ^ 1, BitUtil.GetLs1bIndex(board.bitPieces[(board.side == 0) ? 5 : 11]), board);
-        // increase search depth if the king has been exposed into a check
         if (isInCheck) depth++;
 
         int legalMovesCount = 0;
@@ -252,7 +253,7 @@ class Search
                 if (score >= beta)
                 {
                     // Store hash entry with score equal to beta
-                    TTUtil.WriteEntry(ref board, depth, beta, TT.F_HASH_BETA);
+                    HashTable.WriteEntry(ref board, depth, beta, TT.F_HASH_BETA);
 
                     if (!Move.IsCapture(moveList.list[i]))
                     {
@@ -280,7 +281,7 @@ class Search
                 return 0;
         }
         // Store hash entry with score equal to alpha
-        TTUtil.WriteEntry(ref board, depth, alpha, hashFlag);
+        HashTable.WriteEntry(ref board, depth, alpha, hashFlag);
 
         // node (move) fails low
         return alpha;
@@ -296,7 +297,7 @@ class Search
         nodes++;
 
         // Escape condition - fail-hard beta cutoff
-        int eval = Eval.Evaluate(ref board);
+        int eval = Eval.Evaluate(board);
         // Exit if ply > max ply; ply should be <= 63
         if (ply > MAX_PLY - 1)
             return eval;
@@ -326,7 +327,7 @@ class Search
             board.repetitionIndex++;
             board.repetitionTable[board.repetitionIndex] = board.hashKey;
 
-            // make sure to make only legal moves
+            // Make sure to make only legal moves
             if (!Board.MakeMove(ref board, moveList.list[count], MoveType.onlyCaptures))
             {
                 ply--;
@@ -335,7 +336,7 @@ class Search
                 continue;
             }
 
-            // score current move
+            // Score current move
             int score = -Quiescence(ref board, -beta, -alpha);
 
             ply--;
@@ -344,7 +345,7 @@ class Search
 
             Board.Restore(ref board, copy);
 
-            // When timer runs out, return 0;
+            // When timer runs out, return 0
             if (UCI.Stop) return 0;
 
             // found a better move

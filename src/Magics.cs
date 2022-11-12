@@ -94,12 +94,12 @@ class Magics
         ulong[] usedAttacks = new ulong[4096];
         ulong[] occupancies = new ulong[4096];
         ulong[] attacks = new ulong[4096];
-        ulong magicNumber, possibleOccupancy = (piece == Piece.BISHOP) ? Precalculate.GenBishopOccupancy(sq) : Precalculate.GenRookOccupancy(sq);
+        ulong magicNumber, possibleOccupancy = (piece == Piece.BISHOP) ? Attack.GenBishopOccupancy(sq) : Attack.GenRookOccupancy(sq);
         int occupancyIndicies = 1 << relevant_bits;
         for (int count = 0; count < occupancyIndicies; count++)
         {
-            occupancies[count] = Precalculate.setOccupancy(count, relevant_bits, possibleOccupancy);
-            attacks[count] = (piece == Piece.BISHOP) ? Precalculate.bishopAttacks[sq, occupancies[count]] : Precalculate.GenRookAttacks(sq, occupancies[count]);
+            occupancies[count] = Attack.setOccupancy(count, relevant_bits, possibleOccupancy);
+            attacks[count] = (piece == Piece.BISHOP) ? Attack.bishopAttacks[sq, occupancies[count]] : Attack.GenRookAttacks(sq, occupancies[count]);
         }
 
         for (int randCount = 0; randCount < 100_000_000; randCount++)
@@ -129,12 +129,12 @@ class Magics
         int square;
         Console.WriteLine("{");
         for (square = 0; square <= 63; ++square)
-            Console.WriteLine($"  0x{FindMagicNumber(square, Precalculate.rookRelevantBits[square], Piece.ROOK):X}ul,");
+            Console.WriteLine($"  0x{FindMagicNumber(square, Attack.rookRelevantBits[square], Piece.ROOK):X}ul,");
         Console.WriteLine("};\n\n");
 
         Console.WriteLine("{");
         for (square = 0; square <= 63; ++square)
-            Console.WriteLine($"  0x{FindMagicNumber(square, Precalculate.bishopRelevantBits[square], Piece.BISHOP):X}ul,");
+            Console.WriteLine($"  0x{FindMagicNumber(square, Attack.bishopRelevantBits[square], Piece.BISHOP):X}ul,");
         Console.WriteLine("};\n\n");
     }
 
@@ -148,35 +148,35 @@ class Magics
         ulong output = 0ul;
         if (piece == Piece.BISHOP)
         {
-            blockerBoard &= Precalculate.bishopOccMask[sq];
+            blockerBoard &= Attack.bishopOccMask[sq];
             blockerBoard *= bishopMagics[sq];
-            blockerBoard >>= (64 - Precalculate.bishopRelevantBits[sq]);
-            output = Precalculate.bishopAttacks[sq, blockerBoard];
+            blockerBoard >>= (64 - Attack.bishopRelevantBits[sq]);
+            output = Attack.bishopAttacks[sq, blockerBoard];
         }
         else
         {
-            blockerBoard &= Precalculate.rookOccMask[sq];
+            blockerBoard &= Attack.rookOccMask[sq];
             blockerBoard *= rookMagics[sq];
-            blockerBoard >>= (64 - Precalculate.rookRelevantBits[sq]);
-            output = Precalculate.rookAttacks[sq, blockerBoard];
+            blockerBoard >>= (64 - Attack.rookRelevantBits[sq]);
+            output = Attack.rookAttacks[sq, blockerBoard];
         }
         return output;
     }
 
     public static ulong GetBishopAttack(int sq, ulong blockerBoard)
     {
-        blockerBoard &= Precalculate.bishopOccMask[sq];
+        blockerBoard &= Attack.bishopOccMask[sq];
         blockerBoard *= bishopMagics[sq];
-        blockerBoard >>= (64 - Precalculate.bishopRelevantBits[sq]);
-        return Precalculate.bishopAttacks[sq, blockerBoard];
+        blockerBoard >>= (64 - Attack.bishopRelevantBits[sq]);
+        return Attack.bishopAttacks[sq, blockerBoard];
     }
 
     public static ulong GetRookAttack(int sq, ulong blockerBoard)
     {
-        blockerBoard &= Precalculate.rookOccMask[sq];
+        blockerBoard &= Attack.rookOccMask[sq];
         blockerBoard *= rookMagics[sq];
-        blockerBoard >>= (64 - Precalculate.rookRelevantBits[sq]);
-        return Precalculate.rookAttacks[sq, blockerBoard];
+        blockerBoard >>= (64 - Attack.rookRelevantBits[sq]);
+        return Attack.rookAttacks[sq, blockerBoard];
     }
 
     public static ulong GetQueenAttack(int sq, ulong blockBoard) => GetBishopAttack(sq, blockBoard) | GetRookAttack(sq, blockBoard);

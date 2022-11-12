@@ -12,6 +12,7 @@ class Board
     public int halfMoves;
     public int fullMoves;
     public ulong hashKey;
+    public ulong pawnHashKey;
     public ulong[] repetitionTable;
     public int repetitionIndex;
 
@@ -25,7 +26,8 @@ class Board
         halfMoves = 0;
         fullMoves = 0;
         castling = 0;
-        hashKey = 0L;
+        hashKey = 0UL;
+        pawnHashKey = 0UL;
         // 1000 refers to # of plys: (500 moves) just for safety
         repetitionTable = new ulong[1000];
         repetitionIndex = 0;
@@ -62,8 +64,9 @@ class Board
         Console.WriteLine($"    Side to move: {(side == 0 ? "White" : "Black")}");
         Console.WriteLine($"       Enpassant: {(Squares)enPassant}");
         PrintCastling();
-        Console.WriteLine($"        Move num: {fullMoves}");
-        Console.WriteLine($"        Hash key: {hashKey:X}\n\n");
+        Console.WriteLine($"        Move num: {fullMoves}\n");
+        Console.WriteLine($"        Hash key: {hashKey:X}");
+        Console.WriteLine($"   Pawn Hash key: {pawnHashKey:X}\n\n");
     }
 
     /* Prints the castling rights in a specific format */
@@ -141,6 +144,12 @@ class Board
             main.hashKey ^= Zobrist.pieceKeys[(main.side == 0) ? piece : piece + 6, source];
             main.hashKey ^= Zobrist.pieceKeys[(main.side == 0) ? piece : piece + 6, target];
 
+            if (piece == 0)
+            {
+                main.pawnHashKey ^= Zobrist.pieceKeys[(main.side == 0) ? piece : piece + 6, source];
+                main.pawnHashKey ^= Zobrist.pieceKeys[(main.side == 0) ? piece : piece + 6, target];
+            }
+
             // Remove enemy pieces on target square if capture
             if (isCapture)
             {
@@ -163,6 +172,9 @@ class Board
                         BitUtil.PopBit(ref main.bitPieces[bbPiece], target);
                         // Hash capture: remove captured piece
                         main.hashKey ^= Zobrist.pieceKeys[bbPiece, target];
+                        // If captured piece is a pawn, remove it from the hash key
+                        if (GetPieceOnSquare(main, target) == start)
+                            main.pawnHashKey ^= Zobrist.pieceKeys[0, target];
                         break;
                     }
                 }

@@ -7,10 +7,12 @@ class UCI
 {
     private static Board currentBoard = new Board();
     private static string currentFen = "";
+
     public static bool Stop = false;
     public static bool Quit = false;
     public static bool isInfinite = false;
     public static bool isTimeControlled = false;
+
     private static int timeLeft = -1;
     private static int increment = 0;
     private static int movesToGo = 40, moveTime = -1;
@@ -31,7 +33,7 @@ class UCI
         else if (command.IndexOf("position") != -1)
         {
             Position(command.Substring(9));
-            TTUtil.ClearTable();
+            HashTable.ClearTable();
         }
         else if (command.IndexOf("ucinewgame") != -1)
             Position("startpos");
@@ -47,7 +49,7 @@ class UCI
         else if (command.IndexOf("display") != -1)
             currentBoard.Display();
         else if (command.IndexOf("getfen") != -1)
-            Console.WriteLine("FEN: " + currentFen);
+            Console.WriteLine("FEN: " + FEN.Generate(ref currentBoard));
         else if (command.IndexOf("help") != -1)
             Help();
         else if (command.IndexOf("stop") != -1)
