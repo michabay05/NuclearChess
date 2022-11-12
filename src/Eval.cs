@@ -418,7 +418,7 @@ class Eval
                         endgameScore -= positionalScore[(int)Phase.ENDGAME, 0, BoardUtil.flip[sq]];
 
                         // Doubled pawn penalty
-                        doubledPawns = BitUtil.CountBits(board.bitPieces[0] & BoardUtil.fileMasks[sq]);
+                        doubledPawns = BitUtil.CountBits(board.bitPieces[6] & BoardUtil.fileMasks[sq]);
                         if (doubledPawns > 1)
                         {
                             openingScore -= (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.OPENING];
