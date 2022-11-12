@@ -425,7 +425,7 @@ class Eval
                             endgameScore -= (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.ENDGAME];
                         }
                         // Isolated pawns penalty
-                        if ((board.bitPieces[0] & isolatedMasks[sq]) == 0)
+                        if ((board.bitPieces[6] & isolatedMasks[sq]) == 0)
                         {
                             openingScore -= ISOLATED_PAWN_PENALTY[(int)Phase.OPENING];
                             endgameScore -= ISOLATED_PAWN_PENALTY[(int)Phase.ENDGAME];
