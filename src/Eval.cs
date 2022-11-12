@@ -1,4 +1,7 @@
-﻿namespace Nuclear.src;
+﻿using System.Runtime.CompilerServices;
+using System.Security.Principal;
+
+namespace Nuclear.src;
 
 enum Phase { OPENING, ENDGAME, MIDDLEGAME }
 
@@ -251,6 +254,8 @@ class Eval
     private static readonly int[] DOUBLED_PAWN_PENALTY = { -5, -10 };
     private static readonly int[] ISOLATED_PAWN_PENALTY = { -5, -10 };
     private static readonly int[] PASSED_PAWN_BONUS = { 0, 10, 30, 50, 75, 100, 150, 200 };
+    //private static readonly int[] PASSED_PAWN_BONUS = { 0, 5, 15, 25, 37, 50, 75, 100 };
+    //private static readonly int[] PROTECTED_PASSED_PAWN_BONUS = { 0, 10, 30, 50, 75, 100, 150, 200 };
 
     private static readonly int SEMI_OPEN_FILE_SCORE = 10;
     private static readonly int OPEN_FILE_SCORE = 15;
@@ -297,7 +302,7 @@ class Eval
         }
     }
 
-    public static int Evaluate(ref Board board)
+    public static int Evaluate(Board board)
     {
         // Determine the phase of the game
         int phaseScore = GetPhaseScore(ref board);
@@ -333,28 +338,6 @@ class Eval
                 {
                     // WHITE PAWNS
                     case 0: // PAWN
-                        openingScore += positionalScore[(int)Phase.OPENING, 0, sq];
-                        endgameScore += positionalScore[(int)Phase.ENDGAME, 0, sq];
-
-                        // Doubled pawn penalty
-                        doubledPawns = BitUtil.CountBits(board.bitPieces[0] & BoardUtil.fileMasks[sq]);
-                        if (doubledPawns > 1)
-                        {
-                            openingScore += (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.OPENING];
-                            endgameScore += (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.ENDGAME];
-                        }
-                        // Isolated pawns penalty
-                        if ((board.bitPieces[0] & isolatedMasks[sq]) == 0)
-                        {
-                            openingScore += ISOLATED_PAWN_PENALTY[(int)Phase.OPENING];
-                            endgameScore += ISOLATED_PAWN_PENALTY[(int)Phase.ENDGAME];
-                        }
-                        // Passed pawns bonus
-                        if ((passedMasks[0, sq] & board.bitPieces[6]) == 0)
-                        {
-                            openingScore += PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
-                            endgameScore += PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
-                        }
                         break;
                     case 1: // KNIGHT
                         openingScore += positionalScore[(int)Phase.OPENING, 1, sq];
@@ -409,33 +392,11 @@ class Eval
                         }
 
                         // Mobility
-                        openingScore += BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
-                        endgameScore += BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
+                        openingScore += BitUtil.CountBits(Attack.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
+                        endgameScore += BitUtil.CountBits(Attack.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
                         break;
                     // BLACK PIECES
                     case 6: // PAWN
-                        openingScore -= positionalScore[(int)Phase.OPENING, 0, BoardUtil.flip[sq]];
-                        endgameScore -= positionalScore[(int)Phase.ENDGAME, 0, BoardUtil.flip[sq]];
-
-                        // Doubled pawn penalty
-                        doubledPawns = BitUtil.CountBits(board.bitPieces[6] & BoardUtil.fileMasks[sq]);
-                        if (doubledPawns > 1)
-                        {
-                            openingScore -= (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.OPENING];
-                            endgameScore -= (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.ENDGAME];
-                        }
-                        // Isolated pawns penalty
-                        if ((board.bitPieces[6] & isolatedMasks[sq]) == 0)
-                        {
-                            openingScore -= ISOLATED_PAWN_PENALTY[(int)Phase.OPENING];
-                            endgameScore -= ISOLATED_PAWN_PENALTY[(int)Phase.ENDGAME];
-                        }
-                        // Passed pawns bonus
-                        if ((passedMasks[1, sq] & board.bitPieces[0]) == 0)
-                        {
-                            openingScore -= PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
-                            endgameScore -= PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)];
-                        }
                         break;
                     case 7: // KNIGHT
                         openingScore -= positionalScore[(int)Phase.OPENING, 1, BoardUtil.flip[sq]];
@@ -490,12 +451,24 @@ class Eval
                         }
 
                         // Mobility
-                        openingScore -= BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
-                        endgameScore -= BitUtil.CountBits(Precalculate.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
+                        openingScore -= BitUtil.CountBits(Attack.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
+                        endgameScore -= BitUtil.CountBits(Attack.kingAttacks[sq] & board.bitUnits[0]) * KING_SHIELD_BONUS;
                         break;
                 }
                 BitUtil.PopBit(ref bitboard, sq);
             }
+        }
+        int whiteOpeningEval = 0, whiteEndgameEval = 0;
+        int whiteResult = PawnEval.ReadEntry(board.pawnHashKey, ref whiteOpeningEval, ref whiteEndgameEval);
+        if (whiteResult != HashTable.NO_HASH_ENTRY)
+        {
+            openingScore += whiteOpeningEval;
+            endgameScore += whiteEndgameEval;
+        }
+        else
+        {
+            EvalPawnStructure(board, true, ref openingScore, ref endgameScore);
+            PawnEval.WriteEntry(board.pawnHashKey, openingScore, endgameScore);
         }
 
         // Score interpolation
@@ -532,5 +505,93 @@ class Eval
             blackPieceScore += BitUtil.CountBits(board.bitPieces[piece + 6]) * -materialScore[(int)Phase.OPENING, piece + 6];
         }
         return whitePieceScore + blackPieceScore;
+    }
+
+    private static int EvalPawnStructure(Board board, bool isWhitePiece, ref int openingScore, ref int endgameScore)
+    {
+        int result = 0;
+        ulong bitboard = board.bitPieces[(isWhitePiece) ? 0 : 6];
+        int sq;
+        while (bitboard != 0)
+        {
+            sq = BitUtil.GetLs1bIndex(bitboard);
+            if (isWhitePiece)
+                EvalPawn(board, true, sq, ref openingScore, ref endgameScore);
+            else
+                EvalPawn(board, false, sq, ref openingScore, ref endgameScore);
+            BitUtil.PopBit(ref bitboard, sq);
+        }
+        return result;
+    }
+
+    private static void EvalPawn(Board board, bool isWhitePiece, int sq, ref int openingScore, ref int endgameScore)
+    {
+        int openScore = 0, endScore = 0;
+        int doubledPawns;
+        int side, sideMultiplier, sidePawnIndex, xSidePawnIndex;
+        if (isWhitePiece)
+        {
+            side = 0;
+            sideMultiplier = 1;
+            sidePawnIndex = 0;
+            xSidePawnIndex = 6;
+        }
+        else
+        {
+            side = 1;
+            sideMultiplier = -1;
+            sidePawnIndex = 6;
+            xSidePawnIndex = 0;
+        }
+        bool isPassed = false; // Trying to disprove this
+        bool isWeak = false;   // Trying to disprove this
+        bool isOpposed = false;
+        // Initial pawn positional score
+        openScore += positionalScore[(int)Phase.OPENING, 0, side == 0 ? sq : BoardUtil.flip[sq]] * sideMultiplier;
+        endScore += positionalScore[(int)Phase.ENDGAME, 0, side == 0 ? sq : BoardUtil.flip[sq]] * sideMultiplier;
+
+        // Doubled pawn penalty
+        doubledPawns = BitUtil.CountBits(board.bitPieces[sidePawnIndex] & BoardUtil.fileMasks[sq]);
+        if (doubledPawns > 1)
+        {
+            openScore += (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.OPENING] * sideMultiplier;
+            endScore += (doubledPawns - 1) * DOUBLED_PAWN_PENALTY[(int)Phase.ENDGAME] * sideMultiplier;
+        }
+        // Isolated pawns penalty
+        if ((board.bitPieces[sidePawnIndex] & isolatedMasks[sq]) == 0)
+        {
+            openScore += ISOLATED_PAWN_PENALTY[(int)Phase.OPENING] * sideMultiplier;
+            endScore += ISOLATED_PAWN_PENALTY[(int)Phase.ENDGAME] * sideMultiplier;
+        }
+        // Passed pawns bonus
+        if ((passedMasks[side, sq] & board.bitPieces[xSidePawnIndex]) == 0)
+        {
+            /*if (isPawnSupported(board, sq, side == 0))
+            {
+                openScore += PROTECTED_PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)] * sideMultiplier;
+                endScore += PROTECTED_PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)] * sideMultiplier;
+            }
+            else
+            {}*/
+            openScore += PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)] * sideMultiplier;
+            endScore += PASSED_PAWN_BONUS[BoardUtil.GetRank(sq)] * sideMultiplier;
+        }
+
+        openingScore += openScore;
+        endgameScore += endScore;
+        /*
+        if (isPassed)
+        {
+            if (isPawnSupported(board, sq, isWhitePiece))
+                result += 100;
+            else
+                result += 50;
+        }
+        return result;*/
+    }
+
+    public static bool isPawnSupported(Board board, int sq, bool isWhitePiece)
+    {
+        return (MoveGen.IsSquareAttacked((isWhitePiece) ? 0 : 1, sq, board));
     }
 }

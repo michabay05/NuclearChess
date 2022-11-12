@@ -8,13 +8,13 @@ class MoveGen
     public static bool IsSquareAttacked(int side, int sq, Board board)
     {
         // Attacked by white pawns
-        if ((side == 0) && ((Precalculate.pawnAttacks[1, sq] & board.bitPieces[0]) != 0))
+        if ((side == 0) && ((Attack.pawnAttacks[1, sq] & board.bitPieces[0]) != 0))
             return true;
         // Attacked by black pawns
-        if ((side == 1) && ((Precalculate.pawnAttacks[0, sq] & board.bitPieces[6]) != 0))
+        if ((side == 1) && ((Attack.pawnAttacks[0, sq] & board.bitPieces[6]) != 0))
             return true;
         // Attacked by knights
-        if ((Precalculate.knightAttacks[sq] & ((side == 0) ? board.bitPieces[1] : board.bitPieces[7])) != 0)
+        if ((Attack.knightAttacks[sq] & ((side == 0) ? board.bitPieces[1] : board.bitPieces[7])) != 0)
             return true;
         // Attacked by bishops
         if ((Magics.GetBishopAttack(sq, board.bitAll) & ((side == 0) ? board.bitPieces[2] : board.bitPieces[8])) != 0)
@@ -26,7 +26,7 @@ class MoveGen
         if ((Magics.GetQueenAttack(sq, board.bitAll) & ((side == 0) ? board.bitPieces[4] : board.bitPieces[10])) != 0)
             return true;
         // Attacked by kings
-        if ((Precalculate.kingAttacks[sq] & ((side == 0) ? board.bitPieces[5] : board.bitPieces[11])) != 0)
+        if ((Attack.kingAttacks[sq] & ((side == 0) ? board.bitPieces[5] : board.bitPieces[11])) != 0)
             return true;
 
         // If all these conditions fail, `sq` is not attacked.
@@ -119,7 +119,7 @@ class MoveGen
             }
 
             // Stores opposite color occupied squares attacked by current side
-            attack = Precalculate.pawnAttacks[genBoard.side, source] & genBoard.bitUnits[genBoard.side ^ 1];
+            attack = Attack.pawnAttacks[genBoard.side, source] & genBoard.bitUnits[genBoard.side ^ 1];
 
             // Generate pawn capture moves
             while (attack != 0)
@@ -145,7 +145,7 @@ class MoveGen
             // If there is an enpassant capture
             if (genBoard.enPassant != -1)
             {
-                ulong enPassCapture = Precalculate.pawnAttacks[genBoard.side, source] & (1UL << genBoard.enPassant);
+                ulong enPassCapture = Attack.pawnAttacks[genBoard.side, source] & (1UL << genBoard.enPassant);
                 // Validate if there's an enpassant capture
                 if (enPassCapture != 0)
                 {
@@ -168,7 +168,7 @@ class MoveGen
         {
             source = BitUtil.GetLs1bIndex(bitboard);
 
-            attack = Precalculate.knightAttacks[source] & (genBoard.side == 0 ? ~genBoard.bitUnits[0] : ~genBoard.bitUnits[1]);
+            attack = Attack.knightAttacks[source] & (genBoard.side == 0 ? ~genBoard.bitUnits[0] : ~genBoard.bitUnits[1]);
             while (attack != 0)
             {
                 target = BitUtil.GetLs1bIndex(attack);
@@ -282,7 +282,7 @@ class MoveGen
         {
             source = BitUtil.GetLs1bIndex(bitboard);
 
-            attack = Precalculate.kingAttacks[source] & (genBoard.side == 0 ? ~genBoard.bitUnits[0] : ~genBoard.bitUnits[1]);
+            attack = Attack.kingAttacks[source] & (genBoard.side == 0 ? ~genBoard.bitUnits[0] : ~genBoard.bitUnits[1]);
             while (attack != 0)
             {
                 target = BitUtil.GetLs1bIndex(attack);

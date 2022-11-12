@@ -54,4 +54,33 @@ class Zobrist
             finalHash ^= sideKey;
         return finalHash;
     }
+
+    public static ulong GenPawnHashKey(Board board)
+    {
+        ulong finalHash = 0L;
+        // Stores a copy of a piece's bitboard
+        ulong bitboard = board.bitPieces[0];
+        int square, piece;
+        if (board.side == 0) piece = 0;
+        else piece = 6;
+        // Loop over every piece of current piece type
+        while (bitboard != 0)
+        {
+            square = BitUtil.GetLs1bIndex(bitboard);
+            // XOR with random 64-bit constant
+            finalHash ^= pieceKeys[piece, square];
+            BitUtil.PopBit(ref bitboard, square);
+        }
+        // Hash enpassant square
+        if (board.enPassant != -1)
+            finalHash ^= enPassantKeys[board.enPassant];
+        // Hash castling right
+        finalHash ^= castlingKeys[board.castling];
+        // If side to move is white, don't hash side to move
+        // If side to move is black, hash side to move
+        if (board.side == 1)
+            finalHash ^= sideKey;
+        return finalHash;
+    }
+
 }
