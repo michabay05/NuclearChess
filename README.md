@@ -1,5 +1,5 @@
 # NuclearChess
-This is a bitboard-based chess engine written in C#. This engine was created by following the "Bitboard Chess Engine in C" series by the Chess Programming YouTube Channel. This engine is currently rated 1802 elo in the official CCRL rating list.
+This is a bitboard-based chess engine written in C#. This engine was created by following the "Bitboard Chess Engine in C" series by the Chess Programming YouTube Channel. This engine is currently rated 1693 elo in the official CCRL rating list.
 
 
 ## Features Implemented
